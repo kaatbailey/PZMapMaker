@@ -23,6 +23,8 @@ add_library(pzformat STATIC
     packfile.cpp
     spritenames.cpp
     celldata.cpp
+    tileindex.cpp
+    square.cpp
 )
 
 target_include_directories(pzformat PUBLIC
@@ -49,6 +51,7 @@ pz_add_test(pz_tests_lotpack   test_lotpack.cpp)
 pz_add_test(pz_tests_tiles     test_tiledefs_tilebin.cpp)
 pz_add_test(pz_tests_packfile  test_packfile.cpp)
 pz_add_test(pz_tests_celldata  test_celldata.cpp)
+pz_add_test(pz_tests_tileindex test_tileindex_square.cpp)
 
 add_executable(pz_roundtrip roundtrip.cpp)
 target_link_libraries(pz_roundtrip PRIVATE pzformat)
@@ -69,3 +72,7 @@ target_compile_options(pz_pack_oracle PRIVATE -Wall -Wextra -Wpedantic)
 add_executable(pz_cell_oracle cell_oracle.cpp)
 target_link_libraries(pz_cell_oracle PRIVATE pzformat)
 target_compile_options(pz_cell_oracle PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(pz_classify_oracle classify_oracle.cpp)
+target_link_libraries(pz_classify_oracle PRIVATE pzformat)
+target_compile_options(pz_classify_oracle PRIVATE -Wall -Wextra -Wpedantic)
