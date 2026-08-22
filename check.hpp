@@ -29,7 +29,7 @@ inline int summary() {
 
 } // namespace pztest
 
-#define CHECK(expr) ::pztest::report((expr), #expr, __FILE__, __LINE__)
+#define CHECK(...) ::pztest::report((__VA_ARGS__), #__VA_ARGS__, __FILE__, __LINE__)
 
 #define CHECK_EQ(a, b)                                                         \
     do {                                                                       \
