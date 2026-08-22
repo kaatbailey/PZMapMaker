@@ -1,7 +1,6 @@
 #include "mainwindow.hpp"
 
 #include <QAction>
-#include <QDebug>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QKeySequence>
@@ -27,10 +26,6 @@ namespace {
 constexpr int kRoleX = Qt::UserRole + 1;
 constexpr int kRoleY = Qt::UserRole + 2;
 
-// Temporary diagnostic: proves openMap() is actually being invoked.
-void qDebugProbe() {
-    qDebug() << "[pzmm] openMap() invoked";
-}
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
@@ -95,9 +90,6 @@ void MainWindow::buildDockPanels() {
 }
 
 void MainWindow::openMap() {
-    qDebugProbe();
-    setStatus("Open Map clicked…");
-
     if (!confirmDiscardIfDirty()) return;
 
     // Use Qt's own dialog rather than the native KDE portal: on Wayland the
