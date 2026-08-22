@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace pztest {
 
@@ -49,6 +50,13 @@ namespace pztest {
 
 inline std::string show(const std::string& s) { return '"' + s + '"'; }
 inline std::string show(bool b) { return b ? "true" : "false"; }
+
+inline std::string show(const std::vector<std::string>& v) {
+    std::string s = "[";
+    for (std::size_t i = 0; i < v.size(); ++i) { if (i) s += ", "; s += '"' + v[i] + '"'; }
+    return s + "]";
+}
+
 template <typename T>
 inline std::string show(T v) { return std::to_string(v); }
 

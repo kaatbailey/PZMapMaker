@@ -26,6 +26,7 @@ add_library(pzformat STATIC
     tileindex.cpp
     square.cpp
     mapvalidator.cpp
+    celleditor.cpp
 )
 
 target_include_directories(pzformat PUBLIC
@@ -46,16 +47,17 @@ function(pz_add_test name source)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
-pz_add_test(pz_tests_le_lew     test_le_lew.cpp)
-pz_add_test(pz_tests_lotheader  test_lotheader.cpp)
-pz_add_test(pz_tests_lotpack    test_lotpack.cpp)
-pz_add_test(pz_tests_tiles      test_tiledefs_tilebin.cpp)
-pz_add_test(pz_tests_packfile   test_packfile.cpp)
-pz_add_test(pz_tests_celldata   test_celldata.cpp)
-pz_add_test(pz_tests_tileindex  test_tileindex_square.cpp)
+pz_add_test(pz_tests_le_lew       test_le_lew.cpp)
+pz_add_test(pz_tests_lotheader    test_lotheader.cpp)
+pz_add_test(pz_tests_lotpack      test_lotpack.cpp)
+pz_add_test(pz_tests_tiles        test_tiledefs_tilebin.cpp)
+pz_add_test(pz_tests_packfile     test_packfile.cpp)
+pz_add_test(pz_tests_celldata     test_celldata.cpp)
+pz_add_test(pz_tests_tileindex    test_tileindex_square.cpp)
 pz_add_test(pz_tests_mapvalidator test_mapvalidator.cpp)
+pz_add_test(pz_tests_celleditor   test_celleditor.cpp)
 
-foreach(tool roundtrip oracle tile_oracle pack_oracle cell_oracle classify_oracle)
+foreach(tool roundtrip oracle tile_oracle pack_oracle cell_oracle classify_oracle edit_oracle)
     add_executable(pz_${tool} ${tool}.cpp)
     target_link_libraries(pz_${tool} PRIVATE pzformat)
     target_compile_options(pz_${tool} PRIVATE -Wall -Wextra -Wpedantic)
