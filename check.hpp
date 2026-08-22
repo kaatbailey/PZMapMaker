@@ -38,11 +38,11 @@ inline int summary() {
                          "got " + ::pztest::show(_a) + ", want " + ::pztest::show(_b)); \
     } while (0)
 
-#define CHECK_THROWS(expr)                                                     \
+#define CHECK_THROWS(...)                                                      \
     do {                                                                       \
         bool _threw = false;                                                   \
-        try { (void)(expr); } catch (const ::pzformat::ParseError&) { _threw = true; } \
-        ::pztest::report(_threw, "throws: " #expr, __FILE__, __LINE__);         \
+        try { (void)(__VA_ARGS__); } catch (const ::pzformat::ParseError&) { _threw = true; } \
+        ::pztest::report(_threw, "throws: " #__VA_ARGS__, __FILE__, __LINE__);  \
     } while (0)
 
 namespace pztest {

@@ -31,6 +31,30 @@
 },
 {
   "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/tiledefs.cpp.o -c /home/kaatlev/Documents/PZMapMaker/tiledefs.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/tiledefs.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/tiledefs.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/tilebin.cpp.o -c /home/kaatlev/Documents/PZMapMaker/tilebin.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/tilebin.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/tilebin.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/packfile.cpp.o -c /home/kaatlev/Documents/PZMapMaker/packfile.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/packfile.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/packfile.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/spritenames.cpp.o -c /home/kaatlev/Documents/PZMapMaker/spritenames.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/spritenames.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/spritenames.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
   "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_tests_le_lew.dir/test_le_lew.cpp.o -c /home/kaatlev/Documents/PZMapMaker/test_le_lew.cpp",
   "file": "/home/kaatlev/Documents/PZMapMaker/test_le_lew.cpp",
   "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_tests_le_lew.dir/test_le_lew.cpp.o"
@@ -49,6 +73,18 @@
 },
 {
   "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_tests_tiles.dir/test_tiledefs_tilebin.cpp.o -c /home/kaatlev/Documents/PZMapMaker/test_tiledefs_tilebin.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/test_tiledefs_tilebin.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_tests_tiles.dir/test_tiledefs_tilebin.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_tests_packfile.dir/test_packfile.cpp.o -c /home/kaatlev/Documents/PZMapMaker/test_packfile.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/test_packfile.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_tests_packfile.dir/test_packfile.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
   "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_roundtrip.dir/roundtrip.cpp.o -c /home/kaatlev/Documents/PZMapMaker/roundtrip.cpp",
   "file": "/home/kaatlev/Documents/PZMapMaker/roundtrip.cpp",
   "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_roundtrip.dir/roundtrip.cpp.o"
@@ -58,5 +94,17 @@
   "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_oracle.dir/oracle.cpp.o -c /home/kaatlev/Documents/PZMapMaker/oracle.cpp",
   "file": "/home/kaatlev/Documents/PZMapMaker/oracle.cpp",
   "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_oracle.dir/oracle.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_tile_oracle.dir/tile_oracle.cpp.o -c /home/kaatlev/Documents/PZMapMaker/tile_oracle.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/tile_oracle.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_tile_oracle.dir/tile_oracle.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_pack_oracle.dir/pack_oracle.cpp.o -c /home/kaatlev/Documents/PZMapMaker/pack_oracle.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/pack_oracle.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_pack_oracle.dir/pack_oracle.cpp.o"
 }
 ]

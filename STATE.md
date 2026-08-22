@@ -22,6 +22,75 @@ Solo project, no CI, no code review. Built in three layers, in this order:
 3. **Application layer** — edit maps safely, render them, validate them, and
    generate them. **In progress. This is where all remaining work is.**
 
+---
+
+### PORT IN PROGRESS — Java → C++20 (started 2026-08-21)
+
+The "Java library, Java 21" line above describes the ORIGINAL implementation,
+kept at ~/Documents/PZMapCreation and now used as the **port oracle**. Active
+development is a C++20 rewrite committed to this repo (PZMapMaker), flat layout,
+CMake+Ninja, CLion. Java source is picked up from the PZMapCreation repo; C++
+and updated docs are committed here.
+
+**Why C++.** Qt6 Widgets for the desktop UI (the toolkit TileZed/QGIS/Qt Creator
+use, native on KDE) and OpenGL 4.6 for the viewport. The performance argument
+for leaving the JVM was NOT measured — no interactive viewport existed to
+profile — so it is not the stated basis; UI toolkit fit is. Recorded honestly
+so a later session does not cite a benchmark that was never run.
+
+**Port verification = §4 independent source.** Every ported unit is checked
+against the Java tree, not only its own tests: a shared synthetic input is fed
+to both, outputs must be byte-identical, repeated across the full vanilla
+dataset. Self-tests alone are NOT sufficient — read and write can share a wrong
+assumption and agree (the mirrored-cell bug, §4).
+
+**Ported and CONFIRMED (2026-08-21):**
+
+| Unit | Verified against |
+|---|---|
+| LE / LEW | 318 self-checks; Latin-1 byte fidelity |
+| MappedFile | new; mmap streaming, no Java equivalent |
+| LotHeader | 4065 cells byte-identical, both trees |
+| LotPack | 4065 cells / 4,162,560 chunks byte-identical |
+| TileDefs | text parse; index formula vs // comments |
+| TileBin | 37,060 tiles, binary vs text prop maps identical |
+| PackFile | both .pack layouts round-trip; legacy 0xDEADBEEF |
+| SpriteNames | 46,540 names, identical count Java vs C++ |
+
+**CORRECTION (moved here, not deleted).** LotPack encoder policy was assumed
+SPAN_LEVELS_MINIMAL. Full-dataset round-trip proved **SPAN_LEVELS_FULL** —
+4,162,560/4,162,560 chunks, 100%. MINIMAL scored 76%, matching only cells whose
+last data square lands on a level boundary; the synthetic test cell passed it by
+coincidence. Default corrected.
+
+**FINDING — vegetation_trees_01 has no atlas sprite.** 24 texturepacks hold
+46,540 names, NONE under `vegetation_trees_01`. Vegetation sheets present are
+foliage/ornamental/indoor/farming/gardening/drying only. Tree tiles authored by
+TreeScatter (`vegetation_trees_01_8/10/11`) are tiledefs-only names with no
+pixels — the properties-but-no-pixels case SpriteNames exists to catch. In-game
+trees rely on load-time species substitution (§11), not a direct atlas hit.
+RENDERER IMPLICATION (C3): an authored tile is not guaranteed a sprite; the
+renderer must flag or substitute. "Authored tile with no atlas sprite" is a
+validation rule (A4/C5) — the smarter-than-a-paint-program check that is the
+project's point (§1).
+
+**Storage changes (invisible to the format).** LE reads over std::span, not an
+owned byte[], so a cell can be mmap'ed and chunks decoded on demand. LotPack
+Chunk stores only the levels it has (flat vectors + one contiguous tile pool)
+instead of Java's MAX_LEVELS×8×8 pointer array per chunk.
+
+**Environment gotcha.** Files authored off-machine can carry future timestamps;
+Ninja then loops "manifest still dirty after 100 tries." Fix: `touch *.cpp *.hpp
+CMakeLists.txt` after dropping in new files, then rebuild.
+
+**Repo hygiene.** The build/ directory was committed by mistake (object files,
+CMakeCache with absolute paths, test binaries). A .gitignore now excludes it;
+remove it from tracking with `git rm -r --cached build`.
+
+**Ported next (app-layer gate):** CellData, Square — where the format model
+becomes an editable cell. Then C1 can be written against a real C++ stack.
+
+
 Why the semantic layer is the whole competitive argument: `.tiles` property data
 (`IsWall`, `IsDoor`, facing, container type, NorthWall/WestWall pairing) is what
 makes an editor smarter than a paint program — auto wall-joining, room

@@ -18,6 +18,10 @@ add_library(pzformat STATIC
     lotheader.cpp
     lotpack.cpp
     mapped_file.cpp
+    tiledefs.cpp
+    tilebin.cpp
+    packfile.cpp
+    spritenames.cpp
 )
 
 target_include_directories(pzformat PUBLIC
@@ -41,6 +45,8 @@ endfunction()
 pz_add_test(pz_tests_le_lew    test_le_lew.cpp)
 pz_add_test(pz_tests_lotheader test_lotheader.cpp)
 pz_add_test(pz_tests_lotpack   test_lotpack.cpp)
+pz_add_test(pz_tests_tiles     test_tiledefs_tilebin.cpp)
+pz_add_test(pz_tests_packfile  test_packfile.cpp)
 
 add_executable(pz_roundtrip roundtrip.cpp)
 target_link_libraries(pz_roundtrip PRIVATE pzformat)
@@ -49,3 +55,11 @@ target_compile_options(pz_roundtrip PRIVATE -Wall -Wextra -Wpedantic)
 add_executable(pz_oracle oracle.cpp)
 target_link_libraries(pz_oracle PRIVATE pzformat)
 target_compile_options(pz_oracle PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(pz_tile_oracle tile_oracle.cpp)
+target_link_libraries(pz_tile_oracle PRIVATE pzformat)
+target_compile_options(pz_tile_oracle PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(pz_pack_oracle pack_oracle.cpp)
+target_link_libraries(pz_pack_oracle PRIVATE pzformat)
+target_compile_options(pz_pack_oracle PRIVATE -Wall -Wextra -Wpedantic)

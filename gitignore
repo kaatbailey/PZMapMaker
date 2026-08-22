@@ -1,0 +1,27 @@
+# Build output — regenerated every build, machine-specific (CMakeCache has
+# absolute paths). Never commit.
+/build/
+build/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+*.cmake.stamp
+
+# Compiled objects, libs, binaries
+*.o
+*.a
+*.so
+*.out
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# Java oracle build output (if compiled inside this tree by mistake)
+out/
+*.class

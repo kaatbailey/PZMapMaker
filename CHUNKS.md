@@ -756,20 +756,23 @@ up.
 
 - Local, single-user. **No multi-user concurrent editing** (decided
   2026-08-08 — the official tools don't support it and there's no demand).
-- The library layer stays dependency-free Java 21. The application layer may
-  take dependencies.
+- The library layer stays dependency-free **C++20** (std library only). The
+  application layer may take permissive/LGPL dependencies (Qt6/OpenGL are the
+  post-port working assumption).
 - Reads assets from the user's PZ install. Ships no TIS art.
-- Runs on Linux. Development is Garuda + IntelliJ.
+- Runs on Linux. Development is Garuda + CLion.
 
 **Decide, with reasons:**
 
-1. **UI toolkit.** Options previously floated but never chosen: a local
-   Spring Boot process serving a browser canvas, or native LWJGL / libGDX. With
-   multi-user gone, the main argument for the web stack was removed — so this
-   should be re-argued from scratch, not inherited. Weigh against: Knox County
-   is ~1,300 cells, B42 has negative z-levels, and a naive per-tile draw dies
-   immediately. Sprite batching, an atlas cache and viewport streaming are
-   needed from day one whatever the choice.
+1. **UI toolkit — DECIDED by the 2026-08-21 port: Qt6 Widgets + OpenGL 4.6**
+   (native KDE; the toolkit TileZed/QGIS/Qt Creator use). The earlier Java
+   options (Spring Boot browser canvas, LWJGL/libGDX) are moot. C1's remaining
+   job is to WRITE DOWN this decision with its render falsifier, not to re-pick
+   the toolkit. Weigh against: Knox County ~1,300 cells, B42 negative
+   z-levels, a naive per-tile draw dies immediately. Instanced draw, atlas
+   array textures, two-tier LOD, and mmap chunk streaming are needed from day
+   one — estimate the frame budget and name the number that rules the approach
+   out before building the shell.
 2. **Working store.** SQLite, chunked binary, or the game's own format as the
    live format. Thousands of TMX files is not a working store — TMX stays an
    interop boundary (A5).

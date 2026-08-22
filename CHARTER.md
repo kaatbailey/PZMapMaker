@@ -62,9 +62,10 @@ when they teach something the editor needs, or when they are nearly free.
 - **Never redistribute PZ tilesheets, sprites or art.** Read from the user's
   install directory. Format reverse-engineering is well tolerated in this
   community; shipping TIS's assets is not.
-- **No dependencies in the library layer.** Java 21. The application layer may
-  take dependencies; the library may not.  Exception:
-  C++20, no dependencies in the library layer beyond the standard library; the application layer may take permissively-licensed or LGPL dependencies"
+- **No dependencies in the library layer.** C++20, standard library only. The
+  application layer (UI, rendering) may take permissively-licensed or LGPL
+  dependencies; the format/semantic library may not. (Was Java 21 until the
+  2026-08-21 port; only the language changed, not the dependency-free rule.)
 - **No web service, no accounts, no telemetry.**
 
 ---
@@ -80,6 +81,11 @@ kind.**
   cost three multi-session detours.
 - **Prefer the recipe to the output.** Reading the generator's Lua describes the
   generator; measuring Muldraugh describes one hand-authored town.
+- **The Java tree is the port oracle.** The original Java implementation is kept
+  at ~/Documents/PZMapCreation and compiled. The C++ port is verified against
+  it, not only its own tests: same input → byte-identical output, checked over
+  the full vanilla dataset. This is the independent-source rule applied to the
+  port itself.
 - **Predict the number before running the command.** It turns a run into a test.
 - **Ask what would falsify a result.** A test that cannot fail proves nothing.
 - **Change one thing per test.**
@@ -120,4 +126,4 @@ goal away.
 | Date | Change |
 |---|---|
 | 2026-08-08 | Charter created. Editor goal restored as primary after drift; GIS scoped as side project. Multi-user editing ruled out. |
-| 2026-08-21 |  Some dependencies allowed as long as they are not pay dependencies.
+| 2026-08-21 | Language switched Java → C++20; app layer targets Qt6/OpenGL. Library stays dependency-free (std lib only); app layer may take permissive/LGPL, non-pay dependencies. Java tree (~/Documents/PZMapCreation) retained as the port oracle. Rationale: desktop UI toolkit fit (Qt = TileZed/QGIS/Qt Creator, native KDE); the performance argument was NOT measured and is not the basis. |

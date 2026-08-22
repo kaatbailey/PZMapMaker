@@ -1,4 +1,6 @@
-pz_tests_le_lew 1 0.00131203
-pz_tests_lotheader 1 0.00377386
-pz_tests_lotpack 1 0.00569771
+pz_tests_le_lew 2 0.000680098
+pz_tests_lotheader 2 0.000640796
+pz_tests_lotpack 2 0.00062393
+pz_tests_tiles 2 0.000649317
+pz_tests_packfile 1 0.00115662
 ---

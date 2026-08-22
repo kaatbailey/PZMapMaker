@@ -56,8 +56,6 @@ build CMakeFiles/pzformat.dir/le.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWith
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pzformat.dir
   OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pzformat.dir/pzformat.pdb
-  TARGET_PDB = libpzformat.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
 
 build CMakeFiles/pzformat.dir/lew.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/lew.cpp || cmake_object_order_depends_target_pzformat
@@ -67,8 +65,6 @@ build CMakeFiles/pzformat.dir/lew.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWit
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pzformat.dir
   OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pzformat.dir/pzformat.pdb
-  TARGET_PDB = libpzformat.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
 
 build CMakeFiles/pzformat.dir/lotheader.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/lotheader.cpp || cmake_object_order_depends_target_pzformat
@@ -78,8 +74,6 @@ build CMakeFiles/pzformat.dir/lotheader.cpp.o: CXX_COMPILER__pzformat_unscanned_
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pzformat.dir
   OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pzformat.dir/pzformat.pdb
-  TARGET_PDB = libpzformat.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
 
 build CMakeFiles/pzformat.dir/lotpack.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/lotpack.cpp || cmake_object_order_depends_target_pzformat
@@ -89,8 +83,6 @@ build CMakeFiles/pzformat.dir/lotpack.cpp.o: CXX_COMPILER__pzformat_unscanned_Re
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pzformat.dir
   OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pzformat.dir/pzformat.pdb
-  TARGET_PDB = libpzformat.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
 
 build CMakeFiles/pzformat.dir/mapped_file.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/mapped_file.cpp || cmake_object_order_depends_target_pzformat
@@ -100,8 +92,42 @@ build CMakeFiles/pzformat.dir/mapped_file.cpp.o: CXX_COMPILER__pzformat_unscanne
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pzformat.dir
   OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pzformat.dir/pzformat.pdb
-  TARGET_PDB = libpzformat.pdb
+  TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
+
+build CMakeFiles/pzformat.dir/tiledefs.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/tiledefs.cpp || cmake_object_order_depends_target_pzformat
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pzformat.dir/tiledefs.cpp.o.d
+  FLAGS = -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast
+  INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
+  OBJECT_DIR = CMakeFiles/pzformat.dir
+  OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
+  TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
+
+build CMakeFiles/pzformat.dir/tilebin.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/tilebin.cpp || cmake_object_order_depends_target_pzformat
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pzformat.dir/tilebin.cpp.o.d
+  FLAGS = -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast
+  INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
+  OBJECT_DIR = CMakeFiles/pzformat.dir
+  OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
+  TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
+
+build CMakeFiles/pzformat.dir/packfile.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/packfile.cpp || cmake_object_order_depends_target_pzformat
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pzformat.dir/packfile.cpp.o.d
+  FLAGS = -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast
+  INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
+  OBJECT_DIR = CMakeFiles/pzformat.dir
+  OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
+  TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
+
+build CMakeFiles/pzformat.dir/spritenames.cpp.o: CXX_COMPILER__pzformat_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/spritenames.cpp || cmake_object_order_depends_target_pzformat
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pzformat.dir/spritenames.cpp.o.d
+  FLAGS = -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast
+  INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
+  OBJECT_DIR = CMakeFiles/pzformat.dir
+  OBJECT_FILE_DIR = CMakeFiles/pzformat.dir
   TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
 
 
@@ -112,15 +138,14 @@ build CMakeFiles/pzformat.dir/mapped_file.cpp.o: CXX_COMPILER__pzformat_unscanne
 #############################################
 # Link the static library libpzformat.a
 
-build libpzformat.a: CXX_STATIC_LIBRARY_LINKER__pzformat_RelWithDebInfo CMakeFiles/pzformat.dir/le.cpp.o CMakeFiles/pzformat.dir/lew.cpp.o CMakeFiles/pzformat.dir/lotheader.cpp.o CMakeFiles/pzformat.dir/lotpack.cpp.o CMakeFiles/pzformat.dir/mapped_file.cpp.o
+build libpzformat.a: CXX_STATIC_LIBRARY_LINKER__pzformat_RelWithDebInfo CMakeFiles/pzformat.dir/le.cpp.o CMakeFiles/pzformat.dir/lew.cpp.o CMakeFiles/pzformat.dir/lotheader.cpp.o CMakeFiles/pzformat.dir/lotpack.cpp.o CMakeFiles/pzformat.dir/mapped_file.cpp.o CMakeFiles/pzformat.dir/tiledefs.cpp.o CMakeFiles/pzformat.dir/tilebin.cpp.o CMakeFiles/pzformat.dir/packfile.cpp.o CMakeFiles/pzformat.dir/spritenames.cpp.o
   CONFIG = RelWithDebInfo
   LANGUAGE_COMPILE_FLAGS = -O2 -g -DNDEBUG
   OBJECT_DIR = CMakeFiles/pzformat.dir
   POST_BUILD = :
   PRE_LINK = :
-  TARGET_COMPILE_PDB = CMakeFiles/pzformat.dir/pzformat.pdb
   TARGET_FILE = libpzformat.a
-  TARGET_PDB = libpzformat.pdb
+  TARGET_PDB = pzformat.a.dbg
   TARGET_SUPPORT_DIR = CMakeFiles/pzformat.dir
 
 # =============================================================================
@@ -139,8 +164,6 @@ build CMakeFiles/pz_tests_le_lew.dir/test_le_lew.cpp.o: CXX_COMPILER__pz_tests_l
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pz_tests_le_lew.dir
   OBJECT_FILE_DIR = CMakeFiles/pz_tests_le_lew.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pz_tests_le_lew.dir/
-  TARGET_PDB = pz_tests_le_lew.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_le_lew.dir
 
 
@@ -160,9 +183,8 @@ build pz_tests_le_lew: CXX_EXECUTABLE_LINKER__pz_tests_le_lew_RelWithDebInfo CMa
   OBJECT_DIR = CMakeFiles/pz_tests_le_lew.dir
   POST_BUILD = :
   PRE_LINK = :
-  TARGET_COMPILE_PDB = CMakeFiles/pz_tests_le_lew.dir/
   TARGET_FILE = pz_tests_le_lew
-  TARGET_PDB = pz_tests_le_lew.pdb
+  TARGET_PDB = pz_tests_le_lew.dbg
   TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_le_lew.dir
 
 # =============================================================================
@@ -181,8 +203,6 @@ build CMakeFiles/pz_tests_lotheader.dir/test_lotheader.cpp.o: CXX_COMPILER__pz_t
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pz_tests_lotheader.dir
   OBJECT_FILE_DIR = CMakeFiles/pz_tests_lotheader.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pz_tests_lotheader.dir/
-  TARGET_PDB = pz_tests_lotheader.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_lotheader.dir
 
 
@@ -202,9 +222,8 @@ build pz_tests_lotheader: CXX_EXECUTABLE_LINKER__pz_tests_lotheader_RelWithDebIn
   OBJECT_DIR = CMakeFiles/pz_tests_lotheader.dir
   POST_BUILD = :
   PRE_LINK = :
-  TARGET_COMPILE_PDB = CMakeFiles/pz_tests_lotheader.dir/
   TARGET_FILE = pz_tests_lotheader
-  TARGET_PDB = pz_tests_lotheader.pdb
+  TARGET_PDB = pz_tests_lotheader.dbg
   TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_lotheader.dir
 
 # =============================================================================
@@ -223,8 +242,6 @@ build CMakeFiles/pz_tests_lotpack.dir/test_lotpack.cpp.o: CXX_COMPILER__pz_tests
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pz_tests_lotpack.dir
   OBJECT_FILE_DIR = CMakeFiles/pz_tests_lotpack.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pz_tests_lotpack.dir/
-  TARGET_PDB = pz_tests_lotpack.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_lotpack.dir
 
 
@@ -244,10 +261,87 @@ build pz_tests_lotpack: CXX_EXECUTABLE_LINKER__pz_tests_lotpack_RelWithDebInfo C
   OBJECT_DIR = CMakeFiles/pz_tests_lotpack.dir
   POST_BUILD = :
   PRE_LINK = :
-  TARGET_COMPILE_PDB = CMakeFiles/pz_tests_lotpack.dir/
   TARGET_FILE = pz_tests_lotpack
-  TARGET_PDB = pz_tests_lotpack.pdb
+  TARGET_PDB = pz_tests_lotpack.dbg
   TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_lotpack.dir
+
+# =============================================================================
+# Object build statements for EXECUTABLE target pz_tests_tiles
+
+
+#############################################
+# Order-only phony target for pz_tests_tiles
+
+build cmake_object_order_depends_target_pz_tests_tiles: phony || cmake_object_order_depends_target_pzformat
+
+build CMakeFiles/pz_tests_tiles.dir/test_tiledefs_tilebin.cpp.o: CXX_COMPILER__pz_tests_tiles_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/test_tiledefs_tilebin.cpp || cmake_object_order_depends_target_pz_tests_tiles
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pz_tests_tiles.dir/test_tiledefs_tilebin.cpp.o.d
+  FLAGS = -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic
+  INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
+  OBJECT_DIR = CMakeFiles/pz_tests_tiles.dir
+  OBJECT_FILE_DIR = CMakeFiles/pz_tests_tiles.dir
+  TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_tiles.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target pz_tests_tiles
+
+
+#############################################
+# Link the executable pz_tests_tiles
+
+build pz_tests_tiles: CXX_EXECUTABLE_LINKER__pz_tests_tiles_RelWithDebInfo CMakeFiles/pz_tests_tiles.dir/test_tiledefs_tilebin.cpp.o | libpzformat.a || libpzformat.a
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pz_tests_tiles.dir/link.d
+  FLAGS = -O2 -g -DNDEBUG
+  LINK_FLAGS = -Wl,--dependency-file=CMakeFiles/pz_tests_tiles.dir/link.d
+  LINK_LIBRARIES = libpzformat.a
+  OBJECT_DIR = CMakeFiles/pz_tests_tiles.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = pz_tests_tiles
+  TARGET_PDB = pz_tests_tiles.dbg
+  TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_tiles.dir
+
+# =============================================================================
+# Object build statements for EXECUTABLE target pz_tests_packfile
+
+
+#############################################
+# Order-only phony target for pz_tests_packfile
+
+build cmake_object_order_depends_target_pz_tests_packfile: phony || cmake_object_order_depends_target_pzformat
+
+build CMakeFiles/pz_tests_packfile.dir/test_packfile.cpp.o: CXX_COMPILER__pz_tests_packfile_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/test_packfile.cpp || cmake_object_order_depends_target_pz_tests_packfile
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pz_tests_packfile.dir/test_packfile.cpp.o.d
+  FLAGS = -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic
+  INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
+  OBJECT_DIR = CMakeFiles/pz_tests_packfile.dir
+  OBJECT_FILE_DIR = CMakeFiles/pz_tests_packfile.dir
+  TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_packfile.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target pz_tests_packfile
+
+
+#############################################
+# Link the executable pz_tests_packfile
+
+build pz_tests_packfile: CXX_EXECUTABLE_LINKER__pz_tests_packfile_RelWithDebInfo CMakeFiles/pz_tests_packfile.dir/test_packfile.cpp.o | libpzformat.a || libpzformat.a
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pz_tests_packfile.dir/link.d
+  FLAGS = -O2 -g -DNDEBUG
+  LINK_FLAGS = -Wl,--dependency-file=CMakeFiles/pz_tests_packfile.dir/link.d
+  LINK_LIBRARIES = libpzformat.a
+  OBJECT_DIR = CMakeFiles/pz_tests_packfile.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = pz_tests_packfile
+  TARGET_PDB = pz_tests_packfile.dbg
+  TARGET_SUPPORT_DIR = CMakeFiles/pz_tests_packfile.dir
 
 # =============================================================================
 # Object build statements for EXECUTABLE target pz_roundtrip
@@ -265,8 +359,6 @@ build CMakeFiles/pz_roundtrip.dir/roundtrip.cpp.o: CXX_COMPILER__pz_roundtrip_un
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pz_roundtrip.dir
   OBJECT_FILE_DIR = CMakeFiles/pz_roundtrip.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pz_roundtrip.dir/
-  TARGET_PDB = pz_roundtrip.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pz_roundtrip.dir
 
 
@@ -286,9 +378,8 @@ build pz_roundtrip: CXX_EXECUTABLE_LINKER__pz_roundtrip_RelWithDebInfo CMakeFile
   OBJECT_DIR = CMakeFiles/pz_roundtrip.dir
   POST_BUILD = :
   PRE_LINK = :
-  TARGET_COMPILE_PDB = CMakeFiles/pz_roundtrip.dir/
   TARGET_FILE = pz_roundtrip
-  TARGET_PDB = pz_roundtrip.pdb
+  TARGET_PDB = pz_roundtrip.dbg
   TARGET_SUPPORT_DIR = CMakeFiles/pz_roundtrip.dir
 
 # =============================================================================
@@ -307,8 +398,6 @@ build CMakeFiles/pz_oracle.dir/oracle.cpp.o: CXX_COMPILER__pz_oracle_unscanned_R
   INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
   OBJECT_DIR = CMakeFiles/pz_oracle.dir
   OBJECT_FILE_DIR = CMakeFiles/pz_oracle.dir
-  TARGET_COMPILE_PDB = CMakeFiles/pz_oracle.dir/
-  TARGET_PDB = pz_oracle.pdb
   TARGET_SUPPORT_DIR = CMakeFiles/pz_oracle.dir
 
 
@@ -328,10 +417,87 @@ build pz_oracle: CXX_EXECUTABLE_LINKER__pz_oracle_RelWithDebInfo CMakeFiles/pz_o
   OBJECT_DIR = CMakeFiles/pz_oracle.dir
   POST_BUILD = :
   PRE_LINK = :
-  TARGET_COMPILE_PDB = CMakeFiles/pz_oracle.dir/
   TARGET_FILE = pz_oracle
-  TARGET_PDB = pz_oracle.pdb
+  TARGET_PDB = pz_oracle.dbg
   TARGET_SUPPORT_DIR = CMakeFiles/pz_oracle.dir
+
+# =============================================================================
+# Object build statements for EXECUTABLE target pz_tile_oracle
+
+
+#############################################
+# Order-only phony target for pz_tile_oracle
+
+build cmake_object_order_depends_target_pz_tile_oracle: phony || cmake_object_order_depends_target_pzformat
+
+build CMakeFiles/pz_tile_oracle.dir/tile_oracle.cpp.o: CXX_COMPILER__pz_tile_oracle_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/tile_oracle.cpp || cmake_object_order_depends_target_pz_tile_oracle
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pz_tile_oracle.dir/tile_oracle.cpp.o.d
+  FLAGS = -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic
+  INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
+  OBJECT_DIR = CMakeFiles/pz_tile_oracle.dir
+  OBJECT_FILE_DIR = CMakeFiles/pz_tile_oracle.dir
+  TARGET_SUPPORT_DIR = CMakeFiles/pz_tile_oracle.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target pz_tile_oracle
+
+
+#############################################
+# Link the executable pz_tile_oracle
+
+build pz_tile_oracle: CXX_EXECUTABLE_LINKER__pz_tile_oracle_RelWithDebInfo CMakeFiles/pz_tile_oracle.dir/tile_oracle.cpp.o | libpzformat.a || libpzformat.a
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pz_tile_oracle.dir/link.d
+  FLAGS = -O2 -g -DNDEBUG
+  LINK_FLAGS = -Wl,--dependency-file=CMakeFiles/pz_tile_oracle.dir/link.d
+  LINK_LIBRARIES = libpzformat.a
+  OBJECT_DIR = CMakeFiles/pz_tile_oracle.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = pz_tile_oracle
+  TARGET_PDB = pz_tile_oracle.dbg
+  TARGET_SUPPORT_DIR = CMakeFiles/pz_tile_oracle.dir
+
+# =============================================================================
+# Object build statements for EXECUTABLE target pz_pack_oracle
+
+
+#############################################
+# Order-only phony target for pz_pack_oracle
+
+build cmake_object_order_depends_target_pz_pack_oracle: phony || cmake_object_order_depends_target_pzformat
+
+build CMakeFiles/pz_pack_oracle.dir/pack_oracle.cpp.o: CXX_COMPILER__pz_pack_oracle_unscanned_RelWithDebInfo /home/kaatlev/Documents/PZMapMaker/pack_oracle.cpp || cmake_object_order_depends_target_pz_pack_oracle
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pz_pack_oracle.dir/pack_oracle.cpp.o.d
+  FLAGS = -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic
+  INCLUDES = -I/home/kaatlev/Documents/PZMapMaker
+  OBJECT_DIR = CMakeFiles/pz_pack_oracle.dir
+  OBJECT_FILE_DIR = CMakeFiles/pz_pack_oracle.dir
+  TARGET_SUPPORT_DIR = CMakeFiles/pz_pack_oracle.dir
+
+
+# =============================================================================
+# Link build statements for EXECUTABLE target pz_pack_oracle
+
+
+#############################################
+# Link the executable pz_pack_oracle
+
+build pz_pack_oracle: CXX_EXECUTABLE_LINKER__pz_pack_oracle_RelWithDebInfo CMakeFiles/pz_pack_oracle.dir/pack_oracle.cpp.o | libpzformat.a || libpzformat.a
+  CONFIG = RelWithDebInfo
+  DEP_FILE = CMakeFiles/pz_pack_oracle.dir/link.d
+  FLAGS = -O2 -g -DNDEBUG
+  LINK_FLAGS = -Wl,--dependency-file=CMakeFiles/pz_pack_oracle.dir/link.d
+  LINK_LIBRARIES = libpzformat.a
+  OBJECT_DIR = CMakeFiles/pz_pack_oracle.dir
+  POST_BUILD = :
+  PRE_LINK = :
+  TARGET_FILE = pz_pack_oracle
+  TARGET_PDB = pz_pack_oracle.dbg
+  TARGET_SUPPORT_DIR = CMakeFiles/pz_pack_oracle.dir
 
 
 #############################################
@@ -382,7 +548,7 @@ build pzformat: phony libpzformat.a
 #############################################
 # Folder: /home/kaatlev/Documents/PZMapMaker/build
 
-build all: phony libpzformat.a pz_tests_le_lew pz_tests_lotheader pz_tests_lotpack pz_roundtrip pz_oracle
+build all: phony libpzformat.a pz_tests_le_lew pz_tests_lotheader pz_tests_lotpack pz_tests_tiles pz_tests_packfile pz_roundtrip pz_oracle pz_tile_oracle pz_pack_oracle
 
 # =============================================================================
 # Built-in targets
@@ -391,14 +557,14 @@ build all: phony libpzformat.a pz_tests_le_lew pz_tests_lotheader pz_tests_lotpa
 #############################################
 # Re-run CMake if any of its inputs changed.
 
-build build.ninja /home/kaatlev/Documents/PZMapMaker/build/cmake_install.cmake /home/kaatlev/Documents/PZMapMaker/build/CTestTestfile.cmake: RERUN_CMAKE | /home/kaatlev/Documents/PZMapMaker/CMakeLists.txt /usr/share/cmake/Modules/CMakeCXXCompiler.cmake.in /usr/share/cmake/Modules/CMakeCXXCompilerABI.cpp /usr/share/cmake/Modules/CMakeCXXInformation.cmake /usr/share/cmake/Modules/CMakeCommonLanguageInclude.cmake /usr/share/cmake/Modules/CMakeCompilerIdDetection.cmake /usr/share/cmake/Modules/CMakeDetermineCXXCompiler.cmake /usr/share/cmake/Modules/CMakeDetermineCompiler.cmake /usr/share/cmake/Modules/CMakeDetermineCompilerABI.cmake /usr/share/cmake/Modules/CMakeDetermineCompilerId.cmake /usr/share/cmake/Modules/CMakeDetermineCompilerSupport.cmake /usr/share/cmake/Modules/CMakeDetermineSystem.cmake /usr/share/cmake/Modules/CMakeFindBinUtils.cmake /usr/share/cmake/Modules/CMakeGenericSystem.cmake /usr/share/cmake/Modules/CMakeInitializeConfigs.cmake /usr/share/cmake/Modules/CMakeLanguageInformation.cmake /usr/share/cmake/Modules/CMakeNinjaFindMake.cmake /usr/share/cmake/Modules/CMakeParseImplicitIncludeInfo.cmake /usr/share/cmake/Modules/CMakeParseImplicitLinkInfo.cmake /usr/share/cmake/Modules/CMakeParseLibraryArchitecture.cmake /usr/share/cmake/Modules/CMakeSystem.cmake.in /usr/share/cmake/Modules/CMakeSystemSpecificInformation.cmake /usr/share/cmake/Modules/CMakeSystemSpecificInitialize.cmake /usr/share/cmake/Modules/CMakeTestCXXCompiler.cmake /usr/share/cmake/Modules/CMakeTestCompilerCommon.cmake /usr/share/cmake/Modules/Compiler/ADSP-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/ARMCC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/ARMClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/AppleClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Borland-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/CMakeCommonCompilerMacros.cmake /usr/share/cmake/Modules/Compiler/Clang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Clang-DetermineCompilerInternal.cmake /usr/share/cmake/Modules/Compiler/Compaq-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Cray-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/CrayClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Diab-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Embarcadero-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Fujitsu-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/FujitsuClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/GHS-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/GNU-CXX-CXXImportStd.cmake /usr/share/cmake/Modules/Compiler/GNU-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/GNU-CXX.cmake /usr/share/cmake/Modules/Compiler/GNU-FindBinUtils.cmake /usr/share/cmake/Modules/Compiler/GNU.cmake /usr/share/cmake/Modules/Compiler/HP-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/IAR-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/IBMCPP-CXX-DetermineVersionInternal.cmake /usr/share/cmake/Modules/Compiler/IBMClang-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Intel-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/IntelLLVM-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/LCC-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/MSVC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/NVHPC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/NVIDIA-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/OpenWatcom-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/OrangeC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/PGI-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/PathScale-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/PellesC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Renesas-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/SCO-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/SunPro-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/TI-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/TIClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Tasking-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/VisualAge-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Watcom-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/XL-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/XLClang-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/zOS-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Internal/CMakeCXXLinkerInformation.cmake /usr/share/cmake/Modules/Internal/CMakeCommonLinkerInformation.cmake /usr/share/cmake/Modules/Internal/CMakeDetermineLinkerId.cmake /usr/share/cmake/Modules/Internal/CMakeInspectCXXLinker.cmake /usr/share/cmake/Modules/Internal/FeatureTesting.cmake /usr/share/cmake/Modules/Linker/GNU-CXX.cmake /usr/share/cmake/Modules/Linker/GNU.cmake /usr/share/cmake/Modules/Platform/Linker/GNU.cmake /usr/share/cmake/Modules/Platform/Linker/Linux-GNU-CXX.cmake /usr/share/cmake/Modules/Platform/Linker/Linux-GNU.cmake /usr/share/cmake/Modules/Platform/Linux-Determine-CXX.cmake /usr/share/cmake/Modules/Platform/Linux-GNU-CXX.cmake /usr/share/cmake/Modules/Platform/Linux-GNU.cmake /usr/share/cmake/Modules/Platform/Linux-Initialize.cmake /usr/share/cmake/Modules/Platform/Linux.cmake /usr/share/cmake/Modules/Platform/UnixPaths.cmake CMakeCache.txt CMakeFiles/4.4.1/CMakeCXXCompiler.cmake CMakeFiles/4.4.1/CMakeSystem.cmake
+build build.ninja /home/kaatlev/Documents/PZMapMaker/build/cmake_install.cmake /home/kaatlev/Documents/PZMapMaker/build/CTestTestfile.cmake: RERUN_CMAKE | /home/kaatlev/Documents/PZMapMaker/CMakeLists.txt /usr/share/cmake/Modules/CMakeCXXInformation.cmake /usr/share/cmake/Modules/CMakeCommonLanguageInclude.cmake /usr/share/cmake/Modules/CMakeGenericSystem.cmake /usr/share/cmake/Modules/CMakeInitializeConfigs.cmake /usr/share/cmake/Modules/CMakeLanguageInformation.cmake /usr/share/cmake/Modules/CMakeSystemSpecificInformation.cmake /usr/share/cmake/Modules/CMakeSystemSpecificInitialize.cmake /usr/share/cmake/Modules/Compiler/CMakeCommonCompilerMacros.cmake /usr/share/cmake/Modules/Compiler/GNU-CXX.cmake /usr/share/cmake/Modules/Compiler/GNU.cmake /usr/share/cmake/Modules/Internal/CMakeCXXLinkerInformation.cmake /usr/share/cmake/Modules/Internal/CMakeCommonLinkerInformation.cmake /usr/share/cmake/Modules/Linker/GNU-CXX.cmake /usr/share/cmake/Modules/Linker/GNU.cmake /usr/share/cmake/Modules/Platform/Linker/GNU.cmake /usr/share/cmake/Modules/Platform/Linker/Linux-GNU-CXX.cmake /usr/share/cmake/Modules/Platform/Linker/Linux-GNU.cmake /usr/share/cmake/Modules/Platform/Linux-GNU-CXX.cmake /usr/share/cmake/Modules/Platform/Linux-GNU.cmake /usr/share/cmake/Modules/Platform/Linux-Initialize.cmake /usr/share/cmake/Modules/Platform/Linux.cmake /usr/share/cmake/Modules/Platform/UnixPaths.cmake CMakeCache.txt CMakeFiles/4.4.1/CMakeCXXCompiler.cmake CMakeFiles/4.4.1/CMakeSystem.cmake
   pool = console
 
 
 #############################################
 # A missing CMake input file is not an error.
 
-build /home/kaatlev/Documents/PZMapMaker/CMakeLists.txt /usr/share/cmake/Modules/CMakeCXXCompiler.cmake.in /usr/share/cmake/Modules/CMakeCXXCompilerABI.cpp /usr/share/cmake/Modules/CMakeCXXInformation.cmake /usr/share/cmake/Modules/CMakeCommonLanguageInclude.cmake /usr/share/cmake/Modules/CMakeCompilerIdDetection.cmake /usr/share/cmake/Modules/CMakeDetermineCXXCompiler.cmake /usr/share/cmake/Modules/CMakeDetermineCompiler.cmake /usr/share/cmake/Modules/CMakeDetermineCompilerABI.cmake /usr/share/cmake/Modules/CMakeDetermineCompilerId.cmake /usr/share/cmake/Modules/CMakeDetermineCompilerSupport.cmake /usr/share/cmake/Modules/CMakeDetermineSystem.cmake /usr/share/cmake/Modules/CMakeFindBinUtils.cmake /usr/share/cmake/Modules/CMakeGenericSystem.cmake /usr/share/cmake/Modules/CMakeInitializeConfigs.cmake /usr/share/cmake/Modules/CMakeLanguageInformation.cmake /usr/share/cmake/Modules/CMakeNinjaFindMake.cmake /usr/share/cmake/Modules/CMakeParseImplicitIncludeInfo.cmake /usr/share/cmake/Modules/CMakeParseImplicitLinkInfo.cmake /usr/share/cmake/Modules/CMakeParseLibraryArchitecture.cmake /usr/share/cmake/Modules/CMakeSystem.cmake.in /usr/share/cmake/Modules/CMakeSystemSpecificInformation.cmake /usr/share/cmake/Modules/CMakeSystemSpecificInitialize.cmake /usr/share/cmake/Modules/CMakeTestCXXCompiler.cmake /usr/share/cmake/Modules/CMakeTestCompilerCommon.cmake /usr/share/cmake/Modules/Compiler/ADSP-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/ARMCC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/ARMClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/AppleClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Borland-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/CMakeCommonCompilerMacros.cmake /usr/share/cmake/Modules/Compiler/Clang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Clang-DetermineCompilerInternal.cmake /usr/share/cmake/Modules/Compiler/Compaq-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Cray-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/CrayClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Diab-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Embarcadero-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Fujitsu-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/FujitsuClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/GHS-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/GNU-CXX-CXXImportStd.cmake /usr/share/cmake/Modules/Compiler/GNU-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/GNU-CXX.cmake /usr/share/cmake/Modules/Compiler/GNU-FindBinUtils.cmake /usr/share/cmake/Modules/Compiler/GNU.cmake /usr/share/cmake/Modules/Compiler/HP-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/IAR-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/IBMCPP-CXX-DetermineVersionInternal.cmake /usr/share/cmake/Modules/Compiler/IBMClang-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Intel-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/IntelLLVM-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/LCC-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/MSVC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/NVHPC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/NVIDIA-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/OpenWatcom-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/OrangeC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/PGI-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/PathScale-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/PellesC-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Renesas-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/SCO-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/SunPro-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/TI-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/TIClang-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Tasking-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/VisualAge-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/Watcom-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/XL-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/XLClang-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Compiler/zOS-CXX-DetermineCompiler.cmake /usr/share/cmake/Modules/Internal/CMakeCXXLinkerInformation.cmake /usr/share/cmake/Modules/Internal/CMakeCommonLinkerInformation.cmake /usr/share/cmake/Modules/Internal/CMakeDetermineLinkerId.cmake /usr/share/cmake/Modules/Internal/CMakeInspectCXXLinker.cmake /usr/share/cmake/Modules/Internal/FeatureTesting.cmake /usr/share/cmake/Modules/Linker/GNU-CXX.cmake /usr/share/cmake/Modules/Linker/GNU.cmake /usr/share/cmake/Modules/Platform/Linker/GNU.cmake /usr/share/cmake/Modules/Platform/Linker/Linux-GNU-CXX.cmake /usr/share/cmake/Modules/Platform/Linker/Linux-GNU.cmake /usr/share/cmake/Modules/Platform/Linux-Determine-CXX.cmake /usr/share/cmake/Modules/Platform/Linux-GNU-CXX.cmake /usr/share/cmake/Modules/Platform/Linux-GNU.cmake /usr/share/cmake/Modules/Platform/Linux-Initialize.cmake /usr/share/cmake/Modules/Platform/Linux.cmake /usr/share/cmake/Modules/Platform/UnixPaths.cmake CMakeCache.txt CMakeFiles/4.4.1/CMakeCXXCompiler.cmake CMakeFiles/4.4.1/CMakeSystem.cmake: phony
+build /home/kaatlev/Documents/PZMapMaker/CMakeLists.txt /usr/share/cmake/Modules/CMakeCXXInformation.cmake /usr/share/cmake/Modules/CMakeCommonLanguageInclude.cmake /usr/share/cmake/Modules/CMakeGenericSystem.cmake /usr/share/cmake/Modules/CMakeInitializeConfigs.cmake /usr/share/cmake/Modules/CMakeLanguageInformation.cmake /usr/share/cmake/Modules/CMakeSystemSpecificInformation.cmake /usr/share/cmake/Modules/CMakeSystemSpecificInitialize.cmake /usr/share/cmake/Modules/Compiler/CMakeCommonCompilerMacros.cmake /usr/share/cmake/Modules/Compiler/GNU-CXX.cmake /usr/share/cmake/Modules/Compiler/GNU.cmake /usr/share/cmake/Modules/Internal/CMakeCXXLinkerInformation.cmake /usr/share/cmake/Modules/Internal/CMakeCommonLinkerInformation.cmake /usr/share/cmake/Modules/Linker/GNU-CXX.cmake /usr/share/cmake/Modules/Linker/GNU.cmake /usr/share/cmake/Modules/Platform/Linker/GNU.cmake /usr/share/cmake/Modules/Platform/Linker/Linux-GNU-CXX.cmake /usr/share/cmake/Modules/Platform/Linker/Linux-GNU.cmake /usr/share/cmake/Modules/Platform/Linux-GNU-CXX.cmake /usr/share/cmake/Modules/Platform/Linux-GNU.cmake /usr/share/cmake/Modules/Platform/Linux-Initialize.cmake /usr/share/cmake/Modules/Platform/Linux.cmake /usr/share/cmake/Modules/Platform/UnixPaths.cmake CMakeCache.txt CMakeFiles/4.4.1/CMakeCXXCompiler.cmake CMakeFiles/4.4.1/CMakeSystem.cmake: phony
 
 
 #############################################
