@@ -44,6 +44,56 @@ to both, outputs must be byte-identical, repeated across the full vanilla
 dataset. Self-tests alone are NOT sufficient — read and write can share a wrong
 assumption and agree (the mirrored-cell bug, §4).
 
+### PNG Renderer
+
+### DECISION 2026-08-21 — CellRenderer / SpriteAtlas deferred (not cut)
+
+The offline PNG renderer (CellRenderer + SpriteAtlas) is DEFERRED, not ported
+and not removed. Reasoning, so it is not re-litigated:
+
+- It was always a DEVELOPER DIAGNOSTIC — "a file you can open and compare
+  against the in-game map" — never a MapMaker feature. Charter §1 scope test:
+  it does not edit, validate, or render a map a human is authoring in the tool.
+- Its job (catch interpretation bugs by eye) is now done better by the
+  cross-language oracle, which catches them NUMERICALLY and byte-exact. The two
+  bugs it historically caught (x/y transposition, jumbo-tree scale) were
+  GEOMETRY errors that the coordinate/atlas-index math surfaces without pixels.
+- In-game remains the visual backstop; we are not locked out of visual checks.
+- It is the first unit needing PNG decode/encode, which the C++ std library does
+  not provide. That is an APP-LAYER image dependency (stb_image, or Qt's QImage
+  once C3 commits to Qt). Deferring avoids committing the tree to an image lib
+  before the viewport picks one.
+
+When C3 (interactive viewport) lands, the render MATH (isometric projection,
+painter's order, sprite trim, 2x-pack half-scale) ports then, against whatever
+image/GL path Qt provides. The atlas INDEX logic (entry tables, page dropping,
+"earlier pack wins", scale-is-per-pack) is pure and could be ported dependency-
+free earlier if a validation rule needs it.
+
+### Editor-track inventory (2026-08-21) — what remains vs what is out of scope
+
+PORTED + verified vs Java on retail: LE, LEW, LotHeader, LotPack, TileDefs,
+TileBin, PackFile, SpriteNames, CellData, TileIndex, Square, MapValidator.
+
+EDITOR-TRACK, NOT YET PORTED:
+- CellEditor (253 lines) — layer-aware editing with undo/redo over CellData.
+  This is the core edit loop C1's viewport drives. NEXT.
+- SpriteJoin (107 lines) — properties-but-no-pixels join; a candidate 6th
+  validation rule. Needs only sprite NAMES (SpriteNames), not the atlas pixels,
+  so it is NOT blocked by the CellRenderer deferral.
+
+OUT OF SCOPE for the editor (Charter §2 GIS side-project or read-only surveys):
+- Generation palettes: TilePalette, BiomePalette, TreePalette, GroundMaterial,
+  WaterTiles, MaskRule, PaletteScan, WorldGenBiomes, WorldGenFeatures.
+- Read-only vanilla surveys (taught the rules, write nothing, editor never
+  calls): RoomShapes, RoomMinimums, RoomLayout, HouseLayouts, FootprintAngles,
+  WallCycle, plus the *Probe/*Analysis/*Survey harnesses.
+- GIS plumbing: Json, GeoJson, GisImport, GisCells, and the Gis* / *Rule family.
+
+These are ported only if and when a specific editor feature needs them, per
+Charter §2 ("GIS features are worth building only when they teach something the
+editor needs, or when they are nearly free").
+
 **Ported and CONFIRMED (2026-08-21):**
 
 | Unit | Verified against |
