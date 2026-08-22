@@ -25,6 +25,7 @@ add_library(pzformat STATIC
     celldata.cpp
     tileindex.cpp
     square.cpp
+    mapvalidator.cpp
 )
 
 target_include_directories(pzformat PUBLIC
@@ -45,34 +46,21 @@ function(pz_add_test name source)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
-pz_add_test(pz_tests_le_lew    test_le_lew.cpp)
-pz_add_test(pz_tests_lotheader test_lotheader.cpp)
-pz_add_test(pz_tests_lotpack   test_lotpack.cpp)
-pz_add_test(pz_tests_tiles     test_tiledefs_tilebin.cpp)
-pz_add_test(pz_tests_packfile  test_packfile.cpp)
-pz_add_test(pz_tests_celldata  test_celldata.cpp)
-pz_add_test(pz_tests_tileindex test_tileindex_square.cpp)
+pz_add_test(pz_tests_le_lew     test_le_lew.cpp)
+pz_add_test(pz_tests_lotheader  test_lotheader.cpp)
+pz_add_test(pz_tests_lotpack    test_lotpack.cpp)
+pz_add_test(pz_tests_tiles      test_tiledefs_tilebin.cpp)
+pz_add_test(pz_tests_packfile   test_packfile.cpp)
+pz_add_test(pz_tests_celldata   test_celldata.cpp)
+pz_add_test(pz_tests_tileindex  test_tileindex_square.cpp)
+pz_add_test(pz_tests_mapvalidator test_mapvalidator.cpp)
 
-add_executable(pz_roundtrip roundtrip.cpp)
-target_link_libraries(pz_roundtrip PRIVATE pzformat)
-target_compile_options(pz_roundtrip PRIVATE -Wall -Wextra -Wpedantic)
+foreach(tool roundtrip oracle tile_oracle pack_oracle cell_oracle classify_oracle)
+    add_executable(pz_${tool} ${tool}.cpp)
+    target_link_libraries(pz_${tool} PRIVATE pzformat)
+    target_compile_options(pz_${tool} PRIVATE -Wall -Wextra -Wpedantic)
+endforeach()
 
-add_executable(pz_oracle oracle.cpp)
-target_link_libraries(pz_oracle PRIVATE pzformat)
-target_compile_options(pz_oracle PRIVATE -Wall -Wextra -Wpedantic)
-
-add_executable(pz_tile_oracle tile_oracle.cpp)
-target_link_libraries(pz_tile_oracle PRIVATE pzformat)
-target_compile_options(pz_tile_oracle PRIVATE -Wall -Wextra -Wpedantic)
-
-add_executable(pz_pack_oracle pack_oracle.cpp)
-target_link_libraries(pz_pack_oracle PRIVATE pzformat)
-target_compile_options(pz_pack_oracle PRIVATE -Wall -Wextra -Wpedantic)
-
-add_executable(pz_cell_oracle cell_oracle.cpp)
-target_link_libraries(pz_cell_oracle PRIVATE pzformat)
-target_compile_options(pz_cell_oracle PRIVATE -Wall -Wextra -Wpedantic)
-
-add_executable(pz_classify_oracle classify_oracle.cpp)
-target_link_libraries(pz_classify_oracle PRIVATE pzformat)
-target_compile_options(pz_classify_oracle PRIVATE -Wall -Wextra -Wpedantic)
+add_executable(pz_validate validate_cli.cpp)
+target_link_libraries(pz_validate PRIVATE pzformat)
+target_compile_options(pz_validate PRIVATE -Wall -Wextra -Wpedantic)
