@@ -1,0 +1,51 @@
+Start testing: Aug 21 21:09 EDT
+----------------------------------------------------------
+1/3 Testing: pz_tests_le_lew
+1/3 Test: pz_tests_le_lew
+Command: "/home/kaatlev/Documents/PZMapMaker/build/pz_tests_le_lew"
+Directory: /home/kaatlev/Documents/PZMapMaker/build
+"pz_tests_le_lew" start time: Aug 21 21:09 EDT
+Output:
+----------------------------------------------------------
+PASS  318 checks, 0 failures
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"pz_tests_le_lew" end time: Aug 21 21:09 EDT
+"pz_tests_le_lew" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/3 Testing: pz_tests_lotheader
+2/3 Test: pz_tests_lotheader
+Command: "/home/kaatlev/Documents/PZMapMaker/build/pz_tests_lotheader"
+Directory: /home/kaatlev/Documents/PZMapMaker/build
+"pz_tests_lotheader" start time: Aug 21 21:09 EDT
+Output:
+----------------------------------------------------------
+PASS  55 checks, 0 failures
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"pz_tests_lotheader" end time: Aug 21 21:09 EDT
+"pz_tests_lotheader" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/3 Testing: pz_tests_lotpack
+3/3 Test: pz_tests_lotpack
+Command: "/home/kaatlev/Documents/PZMapMaker/build/pz_tests_lotpack"
+Directory: /home/kaatlev/Documents/PZMapMaker/build
+"pz_tests_lotpack" start time: Aug 21 21:09 EDT
+Output:
+----------------------------------------------------------
+PASS  396 checks, 0 failures
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"pz_tests_lotpack" end time: Aug 21 21:09 EDT
+"pz_tests_lotpack" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Aug 21 21:09 EDT

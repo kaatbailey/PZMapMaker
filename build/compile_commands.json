@@ -1,0 +1,62 @@
+[
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/le.cpp.o -c /home/kaatlev/Documents/PZMapMaker/le.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/le.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/le.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/lew.cpp.o -c /home/kaatlev/Documents/PZMapMaker/lew.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/lew.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/lew.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/lotheader.cpp.o -c /home/kaatlev/Documents/PZMapMaker/lotheader.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/lotheader.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/lotheader.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/lotpack.cpp.o -c /home/kaatlev/Documents/PZMapMaker/lotpack.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/lotpack.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/lotpack.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast -o CMakeFiles/pzformat.dir/mapped_file.cpp.o -c /home/kaatlev/Documents/PZMapMaker/mapped_file.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/mapped_file.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pzformat.dir/mapped_file.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_tests_le_lew.dir/test_le_lew.cpp.o -c /home/kaatlev/Documents/PZMapMaker/test_le_lew.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/test_le_lew.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_tests_le_lew.dir/test_le_lew.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_tests_lotheader.dir/test_lotheader.cpp.o -c /home/kaatlev/Documents/PZMapMaker/test_lotheader.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/test_lotheader.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_tests_lotheader.dir/test_lotheader.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_tests_lotpack.dir/test_lotpack.cpp.o -c /home/kaatlev/Documents/PZMapMaker/test_lotpack.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/test_lotpack.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_tests_lotpack.dir/test_lotpack.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_roundtrip.dir/roundtrip.cpp.o -c /home/kaatlev/Documents/PZMapMaker/roundtrip.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/roundtrip.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_roundtrip.dir/roundtrip.cpp.o"
+},
+{
+  "directory": "/home/kaatlev/Documents/PZMapMaker/build",
+  "command": "/usr/bin/c++ -I/home/kaatlev/Documents/PZMapMaker -O2 -g -DNDEBUG -std=c++20 -Wall -Wextra -Wpedantic -o CMakeFiles/pz_oracle.dir/oracle.cpp.o -c /home/kaatlev/Documents/PZMapMaker/oracle.cpp",
+  "file": "/home/kaatlev/Documents/PZMapMaker/oracle.cpp",
+  "output": "/home/kaatlev/Documents/PZMapMaker/build/CMakeFiles/pz_oracle.dir/oracle.cpp.o"
+}
+]
