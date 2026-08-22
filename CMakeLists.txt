@@ -81,7 +81,15 @@ find_package(Qt6 COMPONENTS Widgets QUIET)
 if(Qt6_FOUND)
     message(STATUS "Qt6 found (${Qt6_VERSION}) — building pzmapmaker app")
     qt_standard_project_setup()
-    qt_add_executable(pzmapmaker app/main.cpp)
+    qt_add_executable(pzmapmaker
+        app/main.cpp
+        app/mainwindow.cpp
+    )
+    # MainWindow uses Q_OBJECT (signals/slots) -> the meta-object compiler must
+    # run. qt_add_executable turns AUTOMOC on, but be explicit so a future
+    # reader doesn't wonder why moc output appears.
+    set_target_properties(pzmapmaker PROPERTIES AUTOMOC ON)
+    target_include_directories(pzmapmaker PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/app)
     target_link_libraries(pzmapmaker PRIVATE pzformat Qt6::Widgets)
     target_compile_options(pzmapmaker PRIVATE -Wall -Wextra)
 else()
