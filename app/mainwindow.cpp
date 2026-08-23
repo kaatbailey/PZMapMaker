@@ -316,6 +316,16 @@ void MainWindow::onCellActivated(QListWidgetItem* item) {
         view_->setCell(*lc.data);
         stack_->setCurrentIndex(1);
 
+        // If the texturepacks are indexed, build this cell's sprite layers (in
+        // tileNames order so layer index == instance layer) and hand them over
+        // so real art draws. If not indexed yet, the view shows placeholder
+        // tints until Set Texturepacks is used.
+        if (atlas_.ready()) {
+            const auto& names = lc.data->header().tileNames;
+            std::vector<std::string> want(names.begin(), names.end());
+            view_->setSprites(atlas_.buildLayers(want));
+        }
+
         const long nonEmpty = lc.data->nonEmptySquares();
         const auto rooms = lc.data->header().rooms.size();
         const CellCensus& cen = view_->lastCensus();
@@ -396,6 +406,7 @@ void MainWindow::setTexturepacks() {
             auto layers = atlas_.buildLayers(want);
             int found = 0;
             for (const auto& L : layers) if (L.found) ++found;
+            view_->setSprites(std::move(layers));
             setStatus(QString("Sprites: %1/%2 resolved for %3 (%4 missing)")
                           .arg(found).arg(want.size())
                           .arg(QString::fromStdString(currentCell_->name()))

@@ -3757,14 +3757,38 @@ substitute/flag, not crash — the independent check the port predicted.
 Texturepacks path (doubled projectzomboid segment is real, B42):
   ~/.local/share/Steam/steamapps/common/ProjectZomboid/projectzomboid/media/texturepacks
 
+### C3 step 4b — real sprite art rendering (2026-08-23)
+
+The viewport now draws actual PZ tile art. uploadSpriteAtlas() sizes the
+GL_TEXTURE_2D_ARRAY to the cell's max sprite dims (126x144 for 43_46), blits each
+sprite bottom-left, and stores per-layer (uvW,uvH,ox,oy) in an Nx1 RGBA32F meta
+texture sampled by layer index. Vertex shader sizes each quad to the sprite's
+real pixel w*h (uv*uAtlasDims), places it at the iso anchor with the entry ox/oy
+offset, bottom-centre aligned. Fragment shader alpha-tests in the opaque pass
+(transparent sprite pixels must not punch depth holes) and blends in the
+translucent pass.
+
+VERIFIED visually on 43_46: grass, foliage, paved road, sidewalk, sand ground
+all render as real art in correct iso position. Zoomed in, tiles sit right.
+Performance holds ~0.3-0.5ms (first-frame atlas upload is a one-time ~7ms spike).
+
+Missing-sprite handling: the 10 no-sprite vegetation tiles render as small
+(16x16) semi-transparent magenta markers — flagged, not hidden. First attempt
+filled the whole 126x144 layer opaque magenta, which (with tens of thousands of
+vegetation instances) blanketed the map; the small-marker fix cleared it.
+
+Known cosmetic gaps (NOT bugs, deferred):
+- Tree/groundcover species substitution (STATE §11) not done — those tiles have
+  no direct atlas sprite by design; markers show where they are.
+- Depth ordering between overlapping sprites may have minor quirks at some zooms;
+  not obviously broken. Revisit if editing needs precise pick order.
+
 ### Status pointer — 2026-08-23 (live, not a handoff)
-Port: DONE. C1: DONE (corrected). C2: DONE. C3: IN PROGRESS.
-C3 steps 1-3: shell, census, two-pass draw, pan/zoom. DONE (~0.4ms, fill not a
-  bottleneck; LOD not needed for editor).
-C3 step 4a: sprite atlas bridge (pack->QImage->pixels). DONE (104/114 resolve).
-C3 step 4b NEXT: upload the variable-size sprite layers into the GL atlas
-  (currently 1x1 tint placeholders) and sample them, so the viewport shows real
-  game art. GL-only change: array sized to max sprite dims, per-layer UV extent
-  (sprites vary 64x128..192x256), entry ox/oy draw offsets for iso placement.
-  Then picking/editing (C4).
+Port: DONE. C1: DONE (corrected). C2: DONE. C3: IN PROGRESS (nearly complete).
+C3 steps 1-3: shell, census, two-pass draw, pan/zoom. DONE.
+C3 step 4a: sprite atlas bridge (pack->QImage->pixels). DONE.
+C3 step 4b: real sprite art rendering. DONE — viewport shows actual game graphics.
+C3 remaining: multi-level display (currently draws all z stacked; may want a
+  level selector), and polish. Then C4: picking/editing (click a tile, see/change
+  what's there). The viewport is now a real map view; C4 makes it an editor.
 

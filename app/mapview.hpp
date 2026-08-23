@@ -29,6 +29,8 @@
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions_4_5_Core>
 
+#include "spriteatlas.hpp"
+
 #include <cstdint>
 #include <vector>
 
@@ -72,6 +74,12 @@ public:
     void setCell(const pzformat::CellData& cell);
     void clearCell();
 
+    // Hand the viewport real sprite pixels for the current cell, in tileNames
+    // order (layers[i] is the sprite for tile-name index i; found=false means
+    // no atlas sprite — drawn as a flagged placeholder). Triggers a re-upload
+    // of the GL atlas on the next paint. Call after setCell.
+    void setSprites(std::vector<SpriteAtlas::Layer> layers);
+
     const CellCensus& lastCensus() const noexcept { return census_; }
     const PassTiming& lastTiming() const noexcept { return timing_; }
 
@@ -111,6 +119,7 @@ private:
     void ensureProgram();
     void uploadInstances();          // (re)fill the instance VBO + atlas
     void makePlaceholderAtlas(int layers);
+    void uploadSpriteAtlas();        // upload real sprite pixels + per-layer meta
     double timedDraw(GLuint query, long first, long count, bool opaquePass);
 
     // Camera: compute the fit-to-window zoom+pan that frames the whole cell.
@@ -122,6 +131,10 @@ private:
     PassTiming timing_;
     std::vector<SpriteInstance> opaque_;      // pass 1 instances (floors)
     std::vector<SpriteInstance> translucent_; // pass 2 instances (rest)
+    std::vector<SpriteAtlas::Layer> sprites_; // real sprite pixels, tileNames order
+    bool  haveSprites_ = false;               // sprites_ set; upload on next paint
+    bool  spritesDirty_ = false;
+    int   atlasW_ = 1, atlasH_ = 1;           // GL atlas array layer dimensions
     int   atlasLayers_ = 0;
     bool  haveCell_ = false;
     bool  dirtyUpload_ = false;               // instance data changed, re-upload
@@ -142,9 +155,11 @@ private:
     GLuint quadVbo_ = 0, quadEbo_ = 0;
     GLuint instVbo_ = 0;                       // opaque_ then translucent_, packed
     GLuint atlas_ = 0;
+    GLuint layerMeta_ = 0;   // RGBA32F texture: per-layer (uvW,uvH,ox,oy)
     GLuint queryOpaque_ = 0, queryTranslucent_ = 0;
     GLint  uSurface_ = -1, uTileSize_ = -1, uOpaquePass_ = -1;
     GLint  uScale_ = -1, uOrigin_ = -1;
+    GLint  uLayerMeta_ = -1, uAtlasDims_ = -1;
     int    viewW_ = 1, viewH_ = 1;
     int    cellSize_ = 256;   // tiles per side of the loaded cell, for fit math
 };

@@ -139,6 +139,13 @@ void MapView::clearCell() {
     if (isValid()) update();
 }
 
+void MapView::setSprites(std::vector<SpriteAtlas::Layer> layers) {
+    sprites_ = std::move(layers);
+    haveSprites_ = true;
+    spritesDirty_ = true;
+    if (isValid()) update();
+}
+
 void MapView::ensureProgram() {
     if (prog_) return;
 
@@ -154,55 +161,70 @@ layout(location=1) in vec2 iWorld;    // tile x,y
 layout(location=2) in uint iLayer;
 layout(location=3) in uint iPacked;   // bit0 opaque, bits8.. z+128
 
-uniform vec2  uSurface;   // pixels
-uniform float uTileSize;  // tileW at 1:1 (64)
-uniform float uScale;     // fit-to-window zoom (<1 shrinks the whole cell)
-uniform vec2  uOrigin;    // pixel offset to centre the cell in the viewport
+uniform vec2  uSurface;    // viewport pixels
+uniform float uTileSize;   // iso tile width at 1:1 (64)
+uniform float uScale;      // zoom (pixels-per-1:1-pixel)
+uniform vec2  uOrigin;     // pixel origin (pan)
+uniform sampler2D uLayerMeta;  // per-layer (uvW,uvH,ox,oy), Nx1
+uniform vec2  uAtlasDims;   // atlas layer size in px (max sprite w,h)
 
 flat out uint vLayer;
 out vec2 vUV;
 
 void main() {
-    float tw = uTileSize * uScale;
-    float th = tw * 0.5;
+    vec4 meta = texelFetch(uLayerMeta, ivec2(int(iLayer), 0), 0);
+    float uvW = meta.x, uvH = meta.y;      // fraction of atlas layer used
+    float ox  = meta.z, oy  = meta.w;      // sprite draw offset (1:1 px)
+
+    // Sprite pixel size at 1:1.
+    float spW = uvW * uAtlasDims.x;
+    float spH = uvH * uAtlasDims.y;
+
     int zlev = int((iPacked >> 8) & 0xFFu) - 128;
+    float tw = uTileSize;                   // 64 at 1:1
 
-    // Iso placement of this tile's diamond bounding box. corner (0..1) spans one
-    // tile's 64x32 box (scaled). Screen-space, y-down.
-    vec2 corner = aCorner;
-    float px = (iWorld.x - iWorld.y) * (tw * 0.5) + corner.x * tw;
-    float py = (iWorld.x + iWorld.y) * (th * 0.5) + corner.y * th
-             - float(zlev) * th * 3.0;
+    // Iso anchor: screen position of this tile's origin (before zoom/pan).
+    // Standard 2:1 iso; z lifts by ~half a tile height per level.
+    float ax = (iWorld.x - iWorld.y) * (tw * 0.5);
+    float ay = (iWorld.x + iWorld.y) * (tw * 0.25) - float(zlev) * (tw * 0.75);
 
-    px += uOrigin.x;
-    py += uOrigin.y;
+    // The sprite quad spans spW x spH, anchored so its BOTTOM-CENTRE sits at the
+    // tile anchor, shifted by the authored offset (ox,oy). corner.y=0 is bottom.
+    float lx = ax - spW * 0.5 + ox + aCorner.x * spW;
+    float ly = ay - spH      + oy + aCorner.y * spH;
+
+    // Apply zoom about the origin, then translate by pan.
+    float px = lx * uScale + uOrigin.x;
+    float py = ly * uScale + uOrigin.y;
 
     vec2 ndc = vec2(px / uSurface.x, py / uSurface.y) * 2.0 - 1.0;
-    ndc.y = -ndc.y;                       // y-down screen -> GL y-up
-    // Map depth into a safe interior range. Depth buffer clears to 1.0 and the
-    // opaque pass uses GL_LESS, so depths must stay below 1.0 or every fragment
-    // is rejected. Higher (x+y+level) = "further back" = larger depth, but kept
-    // within [0.2, 0.8] so nothing lands on the clear value or the near plane.
-    float order = (float(zlev) * 512.0 + iWorld.x + iWorld.y) / 8192.0; // 0..~1
+    ndc.y = -ndc.y;
+    float order = (float(zlev) * 512.0 + iWorld.x + iWorld.y) / 8192.0;
     float depth = 0.2 + clamp(order, 0.0, 1.0) * 0.6;
     gl_Position = vec4(ndc, depth, 1.0);
     vLayer = iLayer;
-    vUV = corner;
+    // Sample only the used sub-rect of the layer (sprite sits bottom-left).
+    vUV = vec2(aCorner.x * uvW, aCorner.y * uvH);
 }
 )";
 
     const char* fs = R"(#version 450 core
 uniform sampler2DArray uAtlas;
-uniform int uOpaquePass;      // 1: floors, discard nothing; 0: blended
+uniform int uOpaquePass;      // 1: floors, alpha-test; 0: blended
 flat in uint vLayer;
 in vec2 vUV;
 out vec4 fragColor;
 void main() {
     vec4 t = texture(uAtlas, vec3(vUV, float(vLayer)));
     if (uOpaquePass == 1) {
-        fragColor = vec4(t.rgb, 1.0);        // opaque, writes depth
+        // Opaque pass writes depth, so transparent sprite pixels must be
+        // discarded or they punch depth holes. Alpha-test.
+        if (t.a < 0.5) discard;
+        fragColor = vec4(t.rgb, 1.0);
     } else {
-        fragColor = vec4(t.rgb, 0.85);       // translucent pass
+        // Translucent pass: use the sprite's own alpha; skip fully-empty texels.
+        if (t.a < 0.02) discard;
+        fragColor = t;
     }
 }
 )";
@@ -231,6 +253,8 @@ void main() {
     uOpaquePass_ = glGetUniformLocation(prog_, "uOpaquePass");
     uScale_      = glGetUniformLocation(prog_, "uScale");
     uOrigin_     = glGetUniformLocation(prog_, "uOrigin");
+    uLayerMeta_  = glGetUniformLocation(prog_, "uLayerMeta");
+    uAtlasDims_  = glGetUniformLocation(prog_, "uAtlasDims");
 }
 
 void MapView::makePlaceholderAtlas(int layers) {
@@ -251,6 +275,78 @@ void MapView::makePlaceholderAtlas(int layers) {
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
+void MapView::uploadSpriteAtlas() {
+    if (sprites_.empty()) return;
+    const int nLayers = static_cast<int>(sprites_.size());
+
+    // Array layer dims = max sprite size across the cell. Sprites vary
+    // (64x128 floors .. 192x256 objects); each blits into the bottom-left of
+    // its layer and the shader samples only its (uvW,uvH) region.
+    int maxW = 1, maxH = 1;
+    for (const auto& L : sprites_) {
+        if (L.found) { maxW = std::max(maxW, L.w); maxH = std::max(maxH, L.h); }
+    }
+    atlasW_ = maxW; atlasH_ = maxH; atlasLayers_ = nLayers;
+
+    if (atlas_) { glDeleteTextures(1, &atlas_); atlas_ = 0; }
+    glGenTextures(1, &atlas_);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, atlas_);
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, atlasW_, atlasH_, nLayers, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    // Per-layer meta: (uvW, uvH, ox, oy) as RGBA32F, one texel per layer.
+    std::vector<float> meta(static_cast<size_t>(nLayers) * 4, 0.0f);
+
+    for (int L = 0; L < nLayers; ++L) {
+        const auto& S = sprites_[L];
+        if (S.found && !S.rgba.empty()) {
+            // Blit the w*h sprite into the bottom-left of this layer.
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, L, S.w, S.h, 1,
+                            GL_RGBA, GL_UNSIGNED_BYTE, S.rgba.data());
+            meta[L*4+0] = float(S.w) / float(atlasW_);   // uvW
+            meta[L*4+1] = float(S.h) / float(atlasH_);   // uvH
+            meta[L*4+2] = float(S.ox);
+            meta[L*4+3] = float(S.oy);
+        } else {
+            // Missing sprite: a SMALL semi-transparent magenta marker, not a
+            // full opaque fill. A full-layer opaque fill made every vegetation
+            // instance (tens of thousands per cell) paint a giant magenta block
+            // that blanketed the map. Give it a tiny footprint (a marker dot)
+            // and low alpha so it flags "no sprite here" without hiding tiles.
+            const int mW = std::min(16, atlasW_), mH = std::min(16, atlasH_);
+            std::vector<std::uint8_t> mark(static_cast<size_t>(mW) * mH * 4);
+            for (size_t i = 0; i < mark.size(); i += 4) {
+                mark[i+0] = 255; mark[i+1] = 0; mark[i+2] = 255;
+                mark[i+3] = 90;   // semi-transparent
+            }
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, L, mW, mH, 1,
+                            GL_RGBA, GL_UNSIGNED_BYTE, mark.data());
+            meta[L*4+0] = float(mW) / float(atlasW_);
+            meta[L*4+1] = float(mH) / float(atlasH_);
+            meta[L*4+2] = 0.0f; meta[L*4+3] = 0.0f;
+        }
+    }
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Upload per-layer meta as an Nx1 RGBA32F texture, sampled by layer index.
+    if (layerMeta_) { glDeleteTextures(1, &layerMeta_); layerMeta_ = 0; }
+    glGenTextures(1, &layerMeta_);
+    glBindTexture(GL_TEXTURE_2D, layerMeta_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, nLayers, 1, 0,
+                 GL_RGBA, GL_FLOAT, meta.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    spritesDirty_ = false;
+    std::printf("[MapView] atlas uploaded: %d layers, %dx%d each\n",
+                nLayers, atlasW_, atlasH_);
+    std::fflush(stdout);
+}
+
 void MapView::uploadInstances() {
     // Pack opaque_ then translucent_ contiguously so each pass draws a range.
     const size_t nO = opaque_.size(), nT = translucent_.size();
@@ -267,7 +363,9 @@ void MapView::uploadInstances() {
                  static_cast<GLsizeiptr>(nT * sizeof(SpriteInstance)),
                  translucent_.data());
 
-    makePlaceholderAtlas(atlasLayers_);
+    // Placeholder tint atlas only until real sprites arrive. Once setSprites()
+    // has been called, uploadSpriteAtlas() owns atlas_ and this would clobber it.
+    if (!haveSprites_) makePlaceholderAtlas(atlasLayers_);
     dirtyUpload_ = false;
 }
 
@@ -466,6 +564,7 @@ void MapView::paintGL() {
     if (!haveCell_ || (opaque_.empty() && translucent_.empty())) return;
 
     if (dirtyUpload_) uploadInstances();
+    if (haveSprites_ && spritesDirty_) uploadSpriteAtlas();
     if (needsFit_) { fitToWindow(); needsFit_ = false; }
 
     glUseProgram(prog_);
@@ -473,6 +572,11 @@ void MapView::paintGL() {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D_ARRAY, atlas_);
     glUniform1i(glGetUniformLocation(prog_, "uAtlas"), 0);
+    // Per-layer meta on unit 1.
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, layerMeta_);
+    glUniform1i(uLayerMeta_, 1);
+    glUniform2f(uAtlasDims_, float(atlasW_), float(atlasH_));
     glUniform2f(uSurface_, float(viewW_), float(viewH_));
     glUniform1f(uTileSize_, kTileW);
 
