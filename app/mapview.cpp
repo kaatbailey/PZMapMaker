@@ -4,8 +4,12 @@
 #include "tileindex.hpp"
 
 #include <QSurfaceFormat>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QWheelEvent>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <string>
 
@@ -112,6 +116,7 @@ void MapView::setCell(const pzformat::CellData& cell) {
     census_ = censusOf(cell);
     buildInstances(cell);
     haveCell_ = true;
+    needsFit_ = true;   // frame the new cell on the next paint (dims known then)
     emit censusReady(census_);
 
     std::printf(
@@ -372,6 +377,87 @@ void MapView::resizeGL(int w, int h) {
     viewW_ = w > 0 ? w : 1;
     viewH_ = h > 0 ? h : 1;
     glViewport(0, 0, viewW_, viewH_);
+    // Re-frame on resize only if we haven't been panned/zoomed by the user yet
+    // would be nicer, but simplest correct behaviour: keep the camera as-is on
+    // resize. A fresh cell calls fitToWindow explicitly.
+}
+
+void MapView::fitToWindow() {
+    // Whole cell at 1:1 iso spans (cellSize*tileW) wide, (cellSize*tileH) tall.
+    // Pick the scale that fits with a margin, and centre it. This is what step 2
+    // computed every frame; now it just seeds the camera once per cell.
+    const float isoW = float(cellSize_) * kTileW;
+    const float isoH = float(cellSize_) * (kTileW * 0.5f);
+    const float margin = 0.92f;
+    zoom_ = margin * std::min(float(viewW_) / isoW, float(viewH_) / isoH);
+    panX_ = float(viewW_) * 0.5f;
+    panY_ = float(viewH_) * 0.5f - (isoH * zoom_) * 0.5f;
+}
+
+void MapView::wheelEvent(QWheelEvent* e) {
+    // Zoom anchored at the cursor: the world point under the pointer stays put.
+    // screen = worldIso*zoom + pan. Hold screen fixed at the cursor while zoom
+    // changes: pan' = cursor - (cursor - pan) * (zoom'/zoom).
+    const float cx = float(e->position().x());
+    const float cy = float(e->position().y());
+    const float step = (e->angleDelta().y() > 0) ? 1.15f : (1.0f / 1.15f);
+    const float newZoom = std::clamp(zoom_ * step, 0.01f, 8.0f);
+    const float k = newZoom / zoom_;
+    panX_ = cx - (cx - panX_) * k;
+    panY_ = cy - (cy - panY_) * k;
+    zoom_ = newZoom;
+    update();
+    e->accept();
+}
+
+void MapView::mousePressEvent(QMouseEvent* e) {
+    if (e->button() == Qt::LeftButton) {
+        dragging_ = true;
+        lastMouseX_ = int(e->position().x());
+        lastMouseY_ = int(e->position().y());
+        e->accept();
+    }
+}
+
+void MapView::mouseMoveEvent(QMouseEvent* e) {
+    if (dragging_) {
+        panX_ += float(int(e->position().x()) - lastMouseX_);
+        panY_ += float(int(e->position().y()) - lastMouseY_);
+        lastMouseX_ = int(e->position().x());
+        lastMouseY_ = int(e->position().y());
+        update();
+        e->accept();
+    }
+}
+
+void MapView::mouseReleaseEvent(QMouseEvent* e) {
+    if (e->button() == Qt::LeftButton) { dragging_ = false; e->accept(); }
+}
+
+void MapView::keyPressEvent(QKeyEvent* e) {
+    switch (e->key()) {
+    case Qt::Key_F:   // re-frame the whole cell
+        fitToWindow();
+        update();
+        break;
+    case Qt::Key_1: { // jump to exact 1:1, keeping the view centre fixed.
+        // This is the step-3 measurement trigger: full-resolution tiles with
+        // real overdraw — the case step 2's fit-to-window could not reach.
+        const float cx = float(viewW_) * 0.5f, cy = float(viewH_) * 0.5f;
+        const float k = 1.0f / zoom_;
+        panX_ = cx - (cx - panX_) * k;
+        panY_ = cy - (cy - panY_) * k;
+        zoom_ = 1.0f;
+        std::printf("[MapView] jumped to 1:1 — next draw is the real overdraw case\n");
+        std::fflush(stdout);
+        update();
+        break;
+    }
+    default:
+        QOpenGLWidget::keyPressEvent(e);
+        return;
+    }
+    e->accept();
 }
 
 void MapView::paintGL() {
@@ -380,6 +466,7 @@ void MapView::paintGL() {
     if (!haveCell_ || (opaque_.empty() && translucent_.empty())) return;
 
     if (dirtyUpload_) uploadInstances();
+    if (needsFit_) { fitToWindow(); needsFit_ = false; }
 
     glUseProgram(prog_);
     glBindVertexArray(vao_);
@@ -389,23 +476,11 @@ void MapView::paintGL() {
     glUniform2f(uSurface_, float(viewW_), float(viewH_));
     glUniform1f(uTileSize_, kTileW);
 
-    // Fit-to-window: the whole cell at 1:1 iso spans (cellSize * tileW) wide and
-    // (cellSize * tileH) tall (plus level lift). Scale so it fits the viewport
-    // with a small margin, and centre it. This shows the entire cell at once —
-    // which is exactly the zoomed-out worst case the census flagged as the fill
-    // risk, so it is the right thing to measure. Interactive pan/zoom is step 3.
-    const float isoW = float(cellSize_) * kTileW;          // ~256*64 = 16384
-    const float isoH = float(cellSize_) * (kTileW * 0.5f); // ~256*32 = 8192
-    const float margin = 0.92f;
-    const float scale = margin * std::min(float(viewW_) / isoW,
-                                          float(viewH_) / isoH);
-    // Iso x ranges [-(cell)*tw/2 .. +(cell)*tw/2] around 0 after (x-y); y ranges
-    // [0 .. (cell)*th]. Centre: shift x to mid-viewport, y to sit under the top.
-    const float originX = float(viewW_) * 0.5f;
-    const float originY = float(viewH_) * 0.5f
-                        - (isoH * scale) * 0.5f;   // vertically centre the band
-    glUniform1f(uScale_, scale);
-    glUniform2f(uOrigin_, originX, originY);
+    // Camera-driven transform (step 3). zoom_ is the absolute scale (was the
+    // fit scale at load; wheel changes it); pan_ is the absolute pixel origin
+    // (centering at load; drag changes it). fitToWindow() seeds both.
+    glUniform1f(uScale_, zoom_);
+    glUniform2f(uOrigin_, panX_, panY_);
 
     const long nO = static_cast<long>(opaque_.size());
     const long nT = static_cast<long>(translucent_.size());

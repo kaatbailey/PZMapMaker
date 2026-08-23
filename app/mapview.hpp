@@ -84,6 +84,13 @@ protected:
     void resizeGL(int w, int h) override;
     void paintGL() override;
 
+    // Interactive camera (step 3).
+    void wheelEvent(QWheelEvent* e) override;
+    void mousePressEvent(QMouseEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+    void mouseReleaseEvent(QMouseEvent* e) override;
+    void keyPressEvent(QKeyEvent* e) override;
+
 private:
     // One instance per (square, tile). Built on the CPU from CellData, uploaded
     // to the GPU as the per-instance vertex stream. 16 bytes, tightly packed.
@@ -106,6 +113,10 @@ private:
     void makePlaceholderAtlas(int layers);
     double timedDraw(GLuint query, long first, long count, bool opaquePass);
 
+    // Camera: compute the fit-to-window zoom+pan that frames the whole cell.
+    // Called on setCell and resize so a fresh cell always starts framed.
+    void fitToWindow();
+
     // --- CPU-side state ---
     CellCensus census_;
     PassTiming timing_;
@@ -115,6 +126,15 @@ private:
     bool  haveCell_ = false;
     bool  dirtyUpload_ = false;               // instance data changed, re-upload
     bool  glReady_ = false;                   // 4.5 core functions resolved
+
+    // --- Camera state (step 3). zoom_ multiplies the base tile size: 1.0 == 1:1
+    // (tiles at full 64x32). pan_ is a pixel offset added to the projection
+    // origin. Driven by wheel (zoom-at-cursor) and left-drag (pan).
+    float zoom_ = 1.0f;
+    float panX_ = 0.0f, panY_ = 0.0f;
+    bool  dragging_ = false;
+    bool  needsFit_ = false;                  // frame the cell on next paint
+    int   lastMouseX_ = 0, lastMouseY_ = 0;
 
     // --- GL-side state (0 until initializeGL) ---
     GLuint prog_ = 0;
