@@ -65,7 +65,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 |---|---|---|---|
 | `[x]` | **C1** Architecture decision gate | — | **A written decision.** |
 | `[x]` | **C2** Working store and project format | C1 | **DONE 2026-08-22.** MapProject (enumerate, LRU, atomic save, edit→save→reopen no loss, 36 tests) + Qt6 MainWindow (open map, cell-list dock with search/Ctrl+G, load-on-click, Recent Maps, dirty marker, close guard). STATE §"C1 DONE + C2 UNDERWAY" and §"C2 polish". |
-| `[~]` | **C3** Interactive viewport | C1, C2 | **IN PROGRESS.** Steps 1–2 done: GL shell (QOpenGLWidget — QOpenGLWindow retracted, see C1 §6) live on Wayland; census measured; textured two-pass draw (opaque floors depth-write, then blended) rendering 43_46 with real per-pass GPU timing (~0.4ms whole-cell fit-to-window, vs the ~4.1ms census estimate). Step 3 next: pan/zoom + first 1:1 overdraw measurement, then the real atlas. |
+| `[~]` | **C3** Interactive viewport | C1, C2 | **IN PROGRESS.** Steps 1–3 + 4a done: GL shell (QOpenGLWidget), census, two-pass draw, pan/zoom, sprite-atlas bridge (pack→QImage→pixels, 104/114 resolve on 43_46). Measured ~0.4ms at every reachable zoom (fill not a bottleneck; LOD not needed for editor). Step 4b next: upload variable-size sprites into the GL atlas so real art draws. Then picking/editing (C4). |
 | `[!]` | **C4** Tool layer: brushes, selection, undo UI | C3, A3 | Blocked |
 | `[!]` | **C5** Shell: panels, tile picker, validation panel | C4, A4 | Blocked |
 

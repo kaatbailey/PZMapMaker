@@ -85,6 +85,7 @@ if(Qt6_FOUND)
         app/main.cpp
         app/mainwindow.cpp
         app/mapview.cpp
+        app/spriteatlas.cpp
     )
     # MainWindow and MapView use Q_OBJECT (signals/slots) -> the meta-object
     # compiler must run. qt_add_executable turns AUTOMOC on, but be explicit so

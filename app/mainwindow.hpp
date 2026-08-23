@@ -8,6 +8,7 @@
 
 #include "mapproject.hpp"
 #include "tileindex.hpp"
+#include "spriteatlas.hpp"
 
 #include <QMainWindow>
 #include <QStringList>
@@ -43,6 +44,7 @@ private slots:
     void saveAll();
     void filterCells(const QString& text);
     void jumpToFirstMatch();
+    void setTexturepacks();
 
 private:
     void buildMenus();
@@ -65,6 +67,7 @@ private:
     // first time a map is opened; for now it may be empty (classification-
     // dependent editor ops just won't classify, which is fine for browsing).
     pzformat::TileIndex tiles_;
+    SpriteAtlas atlas_;   // sprite loader for the viewport (step 4)
     std::optional<pzformat::MapProject> project_;
     std::optional<pzformat::CellCoord> currentCell_;
 

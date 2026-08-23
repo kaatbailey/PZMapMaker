@@ -5,6 +5,7 @@
 #include <QAction>
 #include <QCloseEvent>
 #include <QDockWidget>
+#include <QDir>
 #include <QFileDialog>
 #include <QFont>
 #include <QKeySequence>
@@ -25,6 +26,8 @@
 #include <QWidget>
 
 #include <exception>
+#include <string>
+#include <vector>
 
 namespace pzmm {
 
@@ -91,6 +94,11 @@ void MainWindow::buildMenus() {
 
     recentMenu_ = fileMenu->addMenu("Open &Recent");
     rebuildRecentMenu();
+
+    fileMenu->addSeparator();
+
+    QAction* texAct = fileMenu->addAction("Set &Texturepacks…");
+    connect(texAct, &QAction::triggered, this, &MainWindow::setTexturepacks);
 
     fileMenu->addSeparator();
 
@@ -362,6 +370,40 @@ bool MainWindow::confirmDiscardIfDirty() {
         "There are unsaved edits. Discard them and continue?",
         QMessageBox::Discard | QMessageBox::Cancel);
     return r == QMessageBox::Discard;
+}
+
+void MainWindow::setTexturepacks() {
+    // Default to the common Steam Linux location if it exists, so the picker
+    // opens in the right place. Note the doubled projectzomboid/ segment — that
+    // is the real B42 layout on this platform.
+    QString start;
+    const QString guess = QDir::homePath() +
+        "/.local/share/Steam/steamapps/common/ProjectZomboid/projectzomboid/media/texturepacks";
+    if (QDir(guess).exists()) start = guess;
+
+    const QString dir = QFileDialog::getExistingDirectory(
+        this, "Select PZ texturepacks folder (contains .pack files)", start);
+    if (dir.isEmpty()) return;
+    try {
+        const std::size_t n = atlas_.indexDir(dir.toStdString());
+        setStatus(QString("Indexed %1 sprites from texturepacks").arg(n));
+        // If a cell is already loaded, build its layers now so the effect is
+        // immediate and testable.
+        if (project_ && currentCell_) {
+            pzformat::LoadedCell& lc = project_->load(*currentCell_);
+            const auto& names = lc.data->header().tileNames;
+            std::vector<std::string> want(names.begin(), names.end());
+            auto layers = atlas_.buildLayers(want);
+            int found = 0;
+            for (const auto& L : layers) if (L.found) ++found;
+            setStatus(QString("Sprites: %1/%2 resolved for %3 (%4 missing)")
+                          .arg(found).arg(want.size())
+                          .arg(QString::fromStdString(currentCell_->name()))
+                          .arg(atlas_.lastMissing()));
+        }
+    } catch (const std::exception& e) {
+        QMessageBox::warning(this, "Texturepacks", e.what());
+    }
 }
 
 void MainWindow::setStatus(const QString& msg) {

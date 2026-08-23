@@ -3718,12 +3718,53 @@ interior range (the old ~1.0 depths were rejected against the depth-clear of 1.0
 blanking the opaque pass), and fit-to-window scale so the 16384px-wide cell fits
 a ~940px viewport.
 
+### C3 step 3 — interactive pan/zoom + 1:1 overdraw MEASURED (2026-08-23)
+
+Delivered: wheel zoom (cursor-anchored), left-drag pan, F to re-frame, 1 to jump
+to exact 1:1. Camera state zoom_/panX_/panY_, seeded by fitToWindow() on load.
+
+MEASURED — 1:1 zoom, cell 43_46, 99,830 instances: ~0.4-0.5ms total (opaque
+~0.33ms, translucent ~0.16ms) — same band as fit-to-window.
+
+ALL FILL CASES COVERED. Bounded from two sides: zoomed out, tiles shrink;
+zoomed in, only ~2.7% of the cell is visible. Both ~0.4ms. The expensive case
+(all tiles at full size) is unreachable in a single-cell viewport at any zoom.
+
+CONSEQUENCE for LOD: the step-1 census called Tier-2 LOD "load-bearing" on a
+~4.1ms whole-cell estimate (bounding-quad, since retracted). Measured fill at
+every reachable zoom is ~0.4ms — 10x under budget. LOD is NOT needed for
+single-cell editing. It remains warranted only for a multi-cell world-overview
+mode (C4/C5). The step-1 LOD-crossover calibration item is CLOSED for C3.
+
+### C3 step 4a — sprite atlas bridge working (2026-08-23)
+
+The library->pixels bridge for real tile sprites works. New app-layer SpriteAtlas
+(app/spriteatlas.hpp/.cpp): indexes every .pack via ported PackFile (entry tables
+only), then buildLayers() decodes just the pages a cell needs via QImage and blits
+each sprite's rect. Library stays dependency-free; QImage decodes PNG in the app
+layer only. File -> Set Texturepacks... picks the dir (defaults to Steam path).
+
+MEASURED on real install + cell 43_46:
+  indexed 46,540 sprite names from 24/24 packs  (matches oracle count exactly —
+    PackFile decode + name indexing confirmed on the full retail set)
+  built 114 layers, 10 missing  (104/114 cell tile names resolved to real pixels)
+
+The 10 missing are the "authored tile with no atlas sprite" case flagged during
+the port (STATE ~line 116-123). buildLayers now prints each MISSING name so they
+can be checked against that known set, not assumed. The renderer must
+substitute/flag, not crash — the independent check the port predicted.
+
+Texturepacks path (doubled projectzomboid segment is real, B42):
+  ~/.local/share/Steam/steamapps/common/ProjectZomboid/projectzomboid/media/texturepacks
+
 ### Status pointer — 2026-08-23 (live, not a handoff)
-Port: DONE. C1: DONE (§1.2 threshold corrected; §1.2 QOpenGLWindow choice
-retracted — use QOpenGLWidget). C2: DONE. C3: IN PROGRESS.
-C3 step 1: GL shell + census. DONE.
-C3 step 2: textured two-pass draw + GPU timing. DONE (~0.4ms whole-cell fit).
-C3 step 3 NEXT: interactive pan/zoom. First measurement there: whole cell at
-full 1:1 (real overdraw), the case step 2 could not reach. Then the real atlas
-(decode .pack PNGs into the texture array, replacing the 1x1 tints).
+Port: DONE. C1: DONE (corrected). C2: DONE. C3: IN PROGRESS.
+C3 steps 1-3: shell, census, two-pass draw, pan/zoom. DONE (~0.4ms, fill not a
+  bottleneck; LOD not needed for editor).
+C3 step 4a: sprite atlas bridge (pack->QImage->pixels). DONE (104/114 resolve).
+C3 step 4b NEXT: upload the variable-size sprite layers into the GL atlas
+  (currently 1x1 tint placeholders) and sample them, so the viewport shows real
+  game art. GL-only change: array sized to max sprite dims, per-layer UV extent
+  (sprites vary 64x128..192x256), entry ox/oy draw offsets for iso placement.
+  Then picking/editing (C4).
 
