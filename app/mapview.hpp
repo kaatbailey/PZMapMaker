@@ -1,29 +1,36 @@
-// MapView — the C3 interactive viewport, step 1: GL shell + overdraw census.
+// MapView — the C3 interactive viewport.
 //
-// A QOpenGLWindow (NOT QOpenGLWidget) hosted via QWidget::createWindowContainer.
-// C1_ARCHITECTURE §1.2 line 60: QOpenGLWidget on Wayland introduces a copy path
-// that kills frame time; QOpenGLWindow avoids it. (That copy-path cost is itself
-// unmeasured — we take the safe path rather than verify it, since the safe path
-// costs nothing. If QOpenGLWidget is ever wanted, measure the copy cost first.)
+// QOpenGLWidget base. We first tried QOpenGLWindow-in-createWindowContainer per
+// C1 §1.2's note that QOpenGLWidget has a Wayland copy-path cost — but on this
+// Garuda/KDE/Wayland setup that path rendered nothing visible: draws executed
+// (timed, no GL errors, geometry on-screen) but the container's native surface
+// and the GL context's surface diverged, so nothing was ever presented. Readback
+// of the draw target returned all-zero including the clear colour. QOpenGLWidget
+// presents correctly here; the copy-path cost it warns about is measured, not
+// assumed — see STATE. If that cost ever bites, revisit with real numbers.
 //
-// WHAT THIS STEP DOES
-//   - Brings up a 4.5 core context and clears to a background colour. Proves the
-//     GL surface is live on Garuda/KDE/Wayland before any rendering is built.
-//   - When a cell is set, walks its CellData and computes the ONE number the
-//     500k-instance harness could not supply: the real instance count and
-//     on-screen fragment footprint of a dense cell at 1:1 zoom. Printed, not
-//     drawn. (harness/FINDINGS_harness_2026-08-22.md: "First C3 measurement:
-//     decode one real dense cell to instances and read its on-screen fragment
-//     count." That gates the opaque-pre-pass design, so it comes before sprites.)
+// STEP 1 (done): GL shell live on Wayland + dense-cell instance census.
+// STEP 2 (this): textured instanced draw with the opaque pre-pass built in,
+//   plus per-pass GPU timing. This replaces the census's bounding-quad estimate
+//   with a MEASURED fragment cost on a real cell — the number STATE flagged as
+//   +/-2x until real tiles are drawn.
 //
-// WHAT THIS STEP DOES NOT DO
-//   No atlas, no textures, no sprite drawing, no pan/zoom. Those follow once the
-//   overdraw number is known and the pre-pass strategy is chosen against it.
+// The two-pass structure is the finding from the harness + census made real:
+// the bound is overdraw, so the opaque floor layer is drawn first front-to-back
+// with depth write (early-Z rejects occluded fragments), and only translucent
+// tiles take the blended back-to-front pass. Placeholder textures for now
+// (1x1 solid tint per tile name); the real atlas is a later step. The draw-call
+// structure and the GPU timing are real regardless of texture content.
+//
+// NOT in this step: pan/zoom (camera is fixed, cell drawn at 1:1 from origin),
+// the real atlas, picking/editing. Those follow.
 #pragma once
 
-#include <QOpenGLWindow>
+#include <QOpenGLWidget>
+#include <QOpenGLFunctions_4_5_Core>
 
 #include <cstdint>
+#include <vector>
 
 namespace pzformat { class CellData; }
 
@@ -31,35 +38,46 @@ namespace pzmm {
 
 // Result of the dense-cell instance census — the C3 step-1 measurement.
 struct CellCensus {
-    long instances = 0;        // one instance per (square, tile) that would draw
-    long squares = 0;          // non-empty squares walked
+    long instances = 0;
+    long squares = 0;
     int  minLevel = 0;
     int  maxLevel = 0;
-    // Fragment footprint at 1:1. Iso tiles are ~64x32 diamonds; we price the
-    // bounding sprite (the harness's unit) so the number is comparable to it.
-    double fragmentsAt1to1 = 0.0;   // instances * spriteFragments
+    double fragmentsAt1to1 = 0.0;
     double overdrawAtView(int viewW, int viewH) const {
         const double surface = double(viewW) * double(viewH);
         return surface > 0 ? fragmentsAt1to1 / surface : 0.0;
     }
 };
 
-class MapView : public QOpenGLWindow {
+// Measured GPU time of the two passes, in milliseconds. Filled each frame a
+// cell is drawn; this is the step-2 measurement that supersedes the census
+// estimate. -1 means "not yet timed".
+struct PassTiming {
+    double opaqueMs = -1.0;      // pass 1: floors, depth write, no blend
+    double translucentMs = -1.0; // pass 2: everything else, blended
+    long   opaqueInstances = 0;
+    long   translucentInstances = 0;
+    double totalMs() const { return opaqueMs + translucentMs; }
+};
+
+class MapView : public QOpenGLWidget, protected QOpenGLFunctions_4_5_Core {
     Q_OBJECT
 public:
-    explicit MapView(QWindow* parent = nullptr);
+    explicit MapView(QWidget* parent = nullptr);
     ~MapView() override;
 
-    // Hand the viewport a loaded cell. Non-owning: MapView reads it during the
-    // census and does not retain it. Runs the census immediately and emits
-    // censusReady. Rendering (later steps) will retain a reference instead.
+    // Hand the viewport a loaded cell. MapView copies out the instance data it
+    // needs (position, layer, opacity) and does not retain the CellData. Safe to
+    // call before or after GL init; GL upload is deferred to the next paint.
     void setCell(const pzformat::CellData& cell);
     void clearCell();
 
     const CellCensus& lastCensus() const noexcept { return census_; }
+    const PassTiming& lastTiming() const noexcept { return timing_; }
 
 signals:
     void censusReady(const CellCensus& c);
+    void timingReady(const PassTiming& t);
 
 protected:
     void initializeGL() override;
@@ -67,12 +85,48 @@ protected:
     void paintGL() override;
 
 private:
-    // Walk the cell and fill census_. Pure CPU; no GL. Static so it is unit-
-    // testable off-window if we ever want to (takes only CellData).
+    // One instance per (square, tile). Built on the CPU from CellData, uploaded
+    // to the GPU as the per-instance vertex stream. 16 bytes, tightly packed.
+    struct SpriteInstance {
+        float         wx, wy;     // world tile position (pre-projection)
+        std::uint32_t layer;      // atlas array layer = tile-name index
+        std::uint32_t packed;     // bit0: opaque(floor). bits8..: actual z+128
+    };
+
     static CellCensus censusOf(const pzformat::CellData& cell);
 
+    // Build the instance list + placeholder atlas layers from a cell. Splits
+    // opaque (floor) from translucent so the two passes can draw contiguous
+    // ranges. Pure CPU; no GL.
+    void buildInstances(const pzformat::CellData& cell);
+
+    // GL helpers.
+    void ensureProgram();
+    void uploadInstances();          // (re)fill the instance VBO + atlas
+    void makePlaceholderAtlas(int layers);
+    double timedDraw(GLuint query, long first, long count, bool opaquePass);
+
+    // --- CPU-side state ---
     CellCensus census_;
-    bool haveCell_ = false;
+    PassTiming timing_;
+    std::vector<SpriteInstance> opaque_;      // pass 1 instances (floors)
+    std::vector<SpriteInstance> translucent_; // pass 2 instances (rest)
+    int   atlasLayers_ = 0;
+    bool  haveCell_ = false;
+    bool  dirtyUpload_ = false;               // instance data changed, re-upload
+    bool  glReady_ = false;                   // 4.5 core functions resolved
+
+    // --- GL-side state (0 until initializeGL) ---
+    GLuint prog_ = 0;
+    GLuint vao_ = 0;
+    GLuint quadVbo_ = 0, quadEbo_ = 0;
+    GLuint instVbo_ = 0;                       // opaque_ then translucent_, packed
+    GLuint atlas_ = 0;
+    GLuint queryOpaque_ = 0, queryTranslucent_ = 0;
+    GLint  uSurface_ = -1, uTileSize_ = -1, uOpaquePass_ = -1;
+    GLint  uScale_ = -1, uOrigin_ = -1;
+    int    viewW_ = 1, viewH_ = 1;
+    int    cellSize_ = 256;   // tiles per side of the loaded cell, for fit math
 };
 
 } // namespace pzmm

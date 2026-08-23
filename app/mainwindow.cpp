@@ -43,9 +43,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     resize(1200, 800);
 
     // Central area is a stack: the placeholder label until a map is open, then
-    // the GL viewport. The viewport is a QOpenGLWindow (not QOpenGLWidget) put
-    // in a QWidget container — C1 §1.2: QOpenGLWidget's Wayland copy path is
-    // avoided this way, which matters on this KDE/Wayland target.
+    // the GL viewport. MapView is a QOpenGLWidget — the QOpenGLWindow-in-
+    // createWindowContainer path rendered nothing on this Wayland setup (the
+    // container surface and GL surface diverged). QOpenGLWidget composits
+    // correctly here; see STATE for the measured copy-path note.
     stack_ = new QStackedWidget(this);
 
     placeholder_ = new QLabel("PZMapMaker\nFile → Open Map… to begin.");
@@ -53,10 +54,20 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     stack_->addWidget(placeholder_);            // index 0
 
     view_ = new MapView();
-    QWidget* viewContainer = QWidget::createWindowContainer(view_, stack_);
-    viewContainer->setMinimumSize(320, 240);
-    viewContainer->setFocusPolicy(Qt::StrongFocus);
-    stack_->addWidget(viewContainer);           // index 1
+    // paintGL runs after onCellActivated returns, so pass timing arrives via
+    // signal rather than synchronously. Append it to the status line.
+    connect(view_, &MapView::timingReady, this, [this](const PassTiming& t) {
+        statusBar()->showMessage(
+            QString("Draw: opaque %1 inst %2ms · translucent %3 inst %4ms · total %5ms")
+                .arg(t.opaqueInstances)
+                .arg(t.opaqueMs, 0, 'f', 2)
+                .arg(t.translucentInstances)
+                .arg(t.translucentMs, 0, 'f', 2)
+                .arg(t.totalMs(), 0, 'f', 2));
+    });
+    view_->setMinimumSize(320, 240);
+    view_->setFocusPolicy(Qt::StrongFocus);
+    stack_->addWidget(view_);                    // index 1
 
     stack_->setCurrentIndex(0);
     setCentralWidget(stack_);

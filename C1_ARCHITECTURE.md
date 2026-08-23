@@ -181,3 +181,32 @@ control is the primary render work:
 
 Everything else in §1 (Qt6, the game-format working store, in-memory undo, one
 process) stands unchanged.
+
+---
+
+## 6. §1.2 QOpenGLWindow choice RETRACTED — use QOpenGLWidget (2026-08-23)
+
+§1.2 line 60 said: "QOpenGLWidget on Wayland introduces a copy path that kills
+frame time. Use QOpenGLWindow wrapped in a QWidget::createWindowContainer()
+instead." This was an unmeasured assumption and it is now falsified for the
+target platform.
+
+On Garuda/KDE/Wayland, the QOpenGLWindow-in-createWindowContainer path rendered
+NOTHING VISIBLE during C3 step 2. The draws executed — timed via
+GL_TIME_ELAPSED, zero glGetError, geometry projected on-screen per a CPU-side
+check — but glReadPixels of the draw target (draw_fbo=0) returned all-zero
+including the clear colour. The container's native child surface and the GL
+context's surface diverged; nothing drawn was ever presented.
+
+Switching MapView from QOpenGLWindow to QOpenGLWidget fixed it immediately:
+draw_fbo became Qt's managed non-zero FBO, readback returned the drawn pixels,
+and the cell rendered. Measured draw cost for the whole cell fit to a ~940px
+window: ~0.4ms — the "copy path that kills frame time" is not killing anything
+at this workload.
+
+**Decision:** C3 uses QOpenGLWidget. The §1.2 QOpenGLWindow guidance is retracted.
+If the copy-path cost ever becomes a real problem at higher zoom or resolution,
+it must be re-evaluated with a measurement, not an assumption — the same
+discipline that turned the §1.2 500k gate from a guess into a finding.
+
+Everything else in §1 stands.

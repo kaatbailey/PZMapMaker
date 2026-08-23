@@ -3668,8 +3668,62 @@ NEXT STEP (C3 step 2):
   Atlas step deferred: use a 1x1 white texture per tile type initially so the
   draw call structure and timing are real without needing the atlas ported first.
 
+### C3 step 2 — textured two-pass draw MEASURED + QOpenGLWindow retracted (2026-08-23)
+
+Delivered: MapView now does the real two-pass instanced draw. Opaque floors
+first (depth write, front-to-back, early-Z), then translucent (walls/objects/
+vegetation) blended back-to-front. Placeholder atlas: 1x1 solid tint per tile
+name (real atlas is a later step); draw-call structure and GPU timing are real.
+Per-pass GL_TIME_ELAPSED timing. Cell renders correctly on Garuda/Wayland.
+
+MEASURED (43_46, whole cell fit-to-window ~940px, 99,830 instances):
+  opaque      72,294 inst: ~0.28ms   (floors, depth-write pass)
+  translucent 27,536 inst: ~0.14ms   (blended pass)
+  total:                   ~0.4ms    (range 0.24-0.60 across frames)
+
+This supersedes the step-1 census ESTIMATE (~4.1ms whole-cell, bounding-quad
+guess): the estimate was ~8x too high. Real fill at this zoom is ~0.4ms — huge
+headroom under the 4ms budget. Opaque/translucent per-instance cost is ~4.6 vs
+~5.1 ns/inst; the blended pass is ~1.1x costlier per instance, as expected.
+
+IMPORTANT SCOPE LIMIT (unmeasured case): this is the whole cell FIT TO WINDOW,
+i.e. every tile shrunk to ~3px, so fragment count is capped by the window, not
+the cell. It is the cheap zoomed-OUT case. The expensive case — whole cell at
+full 1:1 with real per-tile overdraw stacking — needs pan/zoom and is NOT yet
+measured. That measurement belongs to step 3. Do not read 0.4ms as the 1:1 cost.
+
+CORRECTION — QOpenGLWindow path RETRACTED (C1 §1.2 line 60 was wrong for this
+platform):
+  C1 §1.2 said use QOpenGLWindow-in-createWindowContainer because QOpenGLWidget
+  has "a copy path that kills frame time" on Wayland. On this Garuda/KDE/Wayland
+  setup the OPPOSITE held: QOpenGLWindow-in-container rendered NOTHING VISIBLE.
+  Draws executed (timed, zero GL errors, geometry on-screen per CPU projection),
+  but the container's native surface and the GL context surface diverged —
+  readback of the draw target (draw_fbo=0) returned all-zero including the clear
+  colour. Nothing was ever presented.
+  Switching to QOpenGLWidget fixed it immediately: draw_fbo=1 (Qt's managed FBO),
+  readback returned drawn pixels, cell visible. Measured cost ~0.4ms — the
+  "copy path that kills frame time" is not killing anything here. The C1 claim
+  was an unmeasured assumption; it is now falsified for this platform and
+  QOpenGLWidget is the confirmed path. (If the copy cost ever bites at higher
+  zoom/resolution, revisit WITH NUMBERS, not assumptions.)
+
+HOW IT WAS FOUND (method note): three wrong guesses (baseInstance null-ptr,
+projection off-screen, depth-clear rejection) were each disproven by
+instrumentation rather than argued about. The decisive tools were glGetError
+(clean), a CPU-side projection print (geometry on-screen), and glReadPixels of
+the draw target (all-zero incl. clear -> wrong surface -> the FBO/present path,
+not the render code). Real fixes that survived: depth mapped to a safe [0.2,0.8]
+interior range (the old ~1.0 depths were rejected against the depth-clear of 1.0,
+blanking the opaque pass), and fit-to-window scale so the 16384px-wide cell fits
+a ~940px viewport.
+
 ### Status pointer — 2026-08-23 (live, not a handoff)
-Port: DONE. C1: DONE (§1.2 threshold corrected). C2: DONE. C3: IN PROGRESS.
-C3 step 1: GL shell live on Wayland, census measured. See above.
-C3 step 2: textured draw + opaque pre-pass + GPU timing. Not started.
+Port: DONE. C1: DONE (§1.2 threshold corrected; §1.2 QOpenGLWindow choice
+retracted — use QOpenGLWidget). C2: DONE. C3: IN PROGRESS.
+C3 step 1: GL shell + census. DONE.
+C3 step 2: textured two-pass draw + GPU timing. DONE (~0.4ms whole-cell fit).
+C3 step 3 NEXT: interactive pan/zoom. First measurement there: whole cell at
+full 1:1 (real overdraw), the case step 2 could not reach. Then the real atlas
+(decode .pack PNGs into the texture array, replacing the 1x1 tints).
 
