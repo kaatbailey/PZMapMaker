@@ -10,6 +10,7 @@
 #include "tileindex.hpp"
 
 #include <QMainWindow>
+#include <QStringList>
 
 #include <memory>
 #include <optional>
@@ -28,6 +29,7 @@ public:
 
 private slots:
     void openMap();
+    void openRecent();
     void onCellActivated(QListWidgetItem* item);
     void saveCurrent();
     void saveAll();
@@ -38,6 +40,15 @@ private:
     void populateCellList();
     void setStatus(const QString& msg);
     bool confirmDiscardIfDirty();
+
+    // Recent maps, persisted via QSettings under ~/.config/PZMapMaker.
+    void openMapDir(const QString& dir);      // shared open path
+    void rememberRecent(const QString& dir);
+    void rebuildRecentMenu();
+    QStringList recentPaths() const;
+
+    QMenu* recentMenu_ = nullptr;
+    static constexpr int kMaxRecent = 10;
 
     // Model side (Qt-free). TileIndex is loaded lazily from the PZ media dir the
     // first time a map is opened; for now it may be empty (classification-

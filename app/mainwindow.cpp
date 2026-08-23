@@ -10,8 +10,10 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QSettings>
 #include <QStatusBar>
 #include <QString>
+#include <QStringList>
 #include <QToolBar>
 
 #include <exception>
@@ -52,6 +54,9 @@ void MainWindow::buildMenus() {
     QAction* openAct = fileMenu->addAction("&Open Map…");
     openAct->setShortcut(QKeySequence::Open);
     connect(openAct, &QAction::triggered, this, &MainWindow::openMap);
+
+    recentMenu_ = fileMenu->addMenu("Open &Recent");
+    rebuildRecentMenu();
 
     fileMenu->addSeparator();
 
@@ -102,7 +107,17 @@ void MainWindow::openMap() {
         setStatus("Open cancelled");
         return;
     }
+    openMapDir(dir);
+}
 
+void MainWindow::openRecent() {
+    auto* action = qobject_cast<QAction*>(sender());
+    if (!action) return;
+    if (!confirmDiscardIfDirty()) return;
+    openMapDir(action->data().toString());
+}
+
+void MainWindow::openMapDir(const QString& dir) {
     try {
         project_.emplace(MapProject::open(dir.toStdString(), tiles_));
     } catch (const std::exception& e) {
@@ -115,9 +130,48 @@ void MainWindow::openMap() {
 
     currentCell_.reset();
     populateCellList();
+    rememberRecent(dir);
     setStatus(QString("Opened %1 — %2 cells")
                   .arg(dir)
                   .arg(project_->cells().size()));
+}
+
+// --- recent maps (QSettings-backed) ---
+
+QStringList MainWindow::recentPaths() const {
+    QSettings s;
+    return s.value("recentMaps").toStringList();
+}
+
+void MainWindow::rememberRecent(const QString& dir) {
+    QStringList paths = recentPaths();
+    paths.removeAll(dir);       // de-dup, move to front
+    paths.prepend(dir);
+    while (paths.size() > kMaxRecent) paths.removeLast();
+    QSettings().setValue("recentMaps", paths);
+    rebuildRecentMenu();
+}
+
+void MainWindow::rebuildRecentMenu() {
+    if (!recentMenu_) return;
+    recentMenu_->clear();
+    const QStringList paths = recentPaths();
+    if (paths.isEmpty()) {
+        QAction* none = recentMenu_->addAction("(no recent maps)");
+        none->setEnabled(false);
+        return;
+    }
+    for (const QString& p : paths) {
+        QAction* act = recentMenu_->addAction(p);
+        act->setData(p);
+        connect(act, &QAction::triggered, this, &MainWindow::openRecent);
+    }
+    recentMenu_->addSeparator();
+    QAction* clear = recentMenu_->addAction("Clear Recent");
+    connect(clear, &QAction::triggered, this, [this] {
+        QSettings().remove("recentMaps");
+        rebuildRecentMenu();
+    });
 }
 
 void MainWindow::populateCellList() {
