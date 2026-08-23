@@ -137,3 +137,47 @@ This document. C1 is `[x]` when this is committed to the repo and the CHUNKS ent
 **C2 is now unblocked.** C3 is unblocked once C2's working store is in place.
 
 The one remaining falsification action before C3 starts: **build the 500k-instance harness** (see §1.2) and record the frame time. Do not start the `QOpenGLWidget` shell until this number is known.
+
+---
+
+## 5. §1.2 gate — RESOLVED and threshold CORRECTED (2026-08-22)
+
+The §1.2 falsifier was run. Do not re-read §1.2's "500k <4ms or instanced draw
+is wrong" as a live gate — it was mis-specified. This section corrects it in
+place of an edit (STATE governance: a wrong belief moves to a correction, it is
+not silently rewritten). Full data: harness/FINDINGS_harness_2026-08-22.md,
+folded into STATE.
+
+**Result: instanced draw is CONFIRMED viable.** On the target RTX 3070 Ti (GL
+4.5 core), one glDrawElementsInstanced showed no draw-call cliff (500k->1M
+linear), and C1's actual predicted 1:1 load (200k instances) rendered in
+1.9ms — well under the 4ms budget.
+
+**The correction:** the 500k-<4ms threshold conflated two independent variables,
+instance count and fragment/overdraw count, into one pass/fail number. The 500k
+FAIL at 18px (4.81ms) is a 44x-overdraw fill-rate result from the harness
+scattering sprites across the whole surface — not an instancing limit. Measured
+facts: instance count is cheap (~1.3ns/instance floor; 500k at near-zero fill =
+0.655ms); the bound is fragments on screen (7.3x swing from sprite size alone at
+fixed count); blending is only ~12% of the cost.
+
+**The §1.2 fallback ("chunked merged geometry") is retracted as the remedy.** It
+reduces draw-call and vertex work; this workload is fragment-bound, so it would
+have paid complexity for no gain. The harness's value was ruling this out before
+it was built.
+
+**What this changes for C3.** The render bottleneck is overdraw, so overdraw
+control is the primary render work:
+- Add an opaque pre-pass (front-to-back, depth write) for opaque ground/floor
+  tiles; reserve the blended back-to-front pass for translucent sprites. This is
+  the main fill lever and should be in C3 from the start.
+- The Tier-2 LOD crossover (§1.2) is load-bearing, not polish: it must fire
+  before on-screen fragment count exceeds the fill budget. Choose the crossover
+  against measured fill, not the assumed 1:32-1:64.
+- One overdraw number the harness could not supply: real dense-cell overdraw at
+  1:1. A PZ cell is 8 z-levels of blended sprites and could approach the
+  harness's overdraw in built-up areas. First C3 measurement: decode one real
+  dense cell to instances and read its on-screen fragment count.
+
+Everything else in §1 (Qt6, the game-format working store, in-memory undo, one
+process) stands unchanged.

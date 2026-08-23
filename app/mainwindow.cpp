@@ -1,10 +1,13 @@
 #include "mainwindow.hpp"
 
 #include <QAction>
+#include <QCloseEvent>
 #include <QDockWidget>
 #include <QFileDialog>
+#include <QFont>
 #include <QKeySequence>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QMenu>
@@ -15,6 +18,7 @@
 #include <QString>
 #include <QStringList>
 #include <QToolBar>
+#include <QVBoxLayout>
 
 #include <exception>
 
@@ -73,6 +77,13 @@ void MainWindow::buildMenus() {
     quitAct->setShortcut(QKeySequence::Quit);
     connect(quitAct, &QAction::triggered, this, &QWidget::close);
 
+    // Go-to-cell shortcut: Ctrl+G focuses the search box.
+    QAction* gotoAct = fileMenu->addAction("&Go to Cell…");
+    gotoAct->setShortcut(QKeySequence("Ctrl+G"));
+    connect(gotoAct, &QAction::triggered, this, [this] {
+        if (cellSearch_) { cellSearch_->setFocus(); cellSearch_->selectAll(); }
+    });
+
     // Always-visible toolbar, independent of the menu bar. This button is the
     // reliable way to open a map regardless of KDE menu behaviour.
     QToolBar* bar = addToolBar("Main");
@@ -85,12 +96,26 @@ void MainWindow::buildDockPanels() {
     auto* dock = new QDockWidget("Cells", this);
     dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
-    cellList_ = new QListWidget(dock);
+    // Container widget: search box above cell list.
+    auto* container = new QWidget(dock);
+    auto* layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(2);
+
+    cellSearch_ = new QLineEdit(container);
+    cellSearch_->setPlaceholderText("Search cells (e.g. 35_35)…");
+    cellSearch_->setClearButtonEnabled(true);
+    connect(cellSearch_, &QLineEdit::textChanged, this, &MainWindow::filterCells);
+    connect(cellSearch_, &QLineEdit::returnPressed, this, &MainWindow::jumpToFirstMatch);
+    layout->addWidget(cellSearch_);
+
+    cellList_ = new QListWidget(container);
     connect(cellList_, &QListWidget::itemActivated, this, &MainWindow::onCellActivated);
     // itemActivated is enter/double-click; also load on single click for ease.
     connect(cellList_, &QListWidget::itemClicked, this, &MainWindow::onCellActivated);
+    layout->addWidget(cellList_);
 
-    dock->setWidget(cellList_);
+    dock->setWidget(container);
     addDockWidget(Qt::LeftDockWidgetArea, dock);
 }
 
@@ -176,12 +201,66 @@ void MainWindow::rebuildRecentMenu() {
 
 void MainWindow::populateCellList() {
     cellList_->clear();
+    if (cellSearch_) cellSearch_->clear();
     if (!project_) return;
     for (const auto& c : project_->cells()) {
         auto* item = new QListWidgetItem(QString::fromStdString(c.name()));
         item->setData(kRoleX, c.x);
         item->setData(kRoleY, c.y);
         cellList_->addItem(item);
+    }
+    refreshDirtyMarkers();
+}
+
+void MainWindow::filterCells(const QString& text) {
+    // Hide items whose base name doesn't contain the search substring.
+    for (int i = 0; i < cellList_->count(); ++i) {
+        auto* item = cellList_->item(i);
+        const CellCoord c{item->data(kRoleX).toInt(), item->data(kRoleY).toInt()};
+        const QString name = QString::fromStdString(c.name());
+        item->setHidden(!name.contains(text, Qt::CaseInsensitive));
+    }
+}
+
+void MainWindow::jumpToFirstMatch() {
+    // Enter in the search box: load the first visible (non-hidden) cell.
+    for (int i = 0; i < cellList_->count(); ++i) {
+        auto* item = cellList_->item(i);
+        if (!item->isHidden()) {
+            cellList_->setCurrentItem(item);
+            cellList_->scrollToItem(item);
+            onCellActivated(item);
+            cellList_->setFocus();   // move focus to list so arrow keys work after jump
+            return;
+        }
+    }
+    // If we get here: either no map loaded, or search text matches nothing.
+    if (!project_) {
+        QMessageBox::information(this, "No map open",
+            "Open a map first (File → Open Map…), then use the search box to find a cell.");
+    } else {
+        setStatus(QString("No cell matches \"%1\"").arg(cellSearch_->text()));
+    }
+}
+
+void MainWindow::refreshDirtyMarkers() {
+    if (!project_) return;
+    const auto dirty = project_->dirtyCells();
+    // Build a set for fast lookup.
+    std::map<std::string, bool> dirtySet;
+    for (const auto& c : dirty) dirtySet[c.name()] = true;
+
+    for (int i = 0; i < cellList_->count(); ++i) {
+        auto* item = cellList_->item(i);
+        const CellCoord c{item->data(kRoleX).toInt(), item->data(kRoleY).toInt()};
+        const bool isDirty = dirtySet.count(c.name()) > 0;
+        // Display text: "X_Y" or "X_Y *"
+        const QString base = QString::fromStdString(c.name());
+        item->setText(isDirty ? base + " *" : base);
+        // Bold font for dirty cells.
+        QFont f = item->font();
+        f.setBold(isDirty);
+        item->setFont(f);
     }
 }
 
@@ -214,6 +293,7 @@ void MainWindow::saveCurrent() {
     if (!project_ || !currentCell_) { setStatus("No cell selected"); return; }
     try {
         project_->save(*currentCell_);
+        refreshDirtyMarkers();
         setStatus(QString("Saved %1").arg(QString::fromStdString(currentCell_->name())));
     } catch (const std::exception& e) {
         QMessageBox::critical(this, "Save failed", e.what());
@@ -224,17 +304,25 @@ void MainWindow::saveAll() {
     if (!project_) return;
     try {
         const int n = project_->saveAll();
+        refreshDirtyMarkers();
         setStatus(QString("Saved %1 cell(s)").arg(n));
     } catch (const std::exception& e) {
         QMessageBox::critical(this, "Save failed", e.what());
     }
 }
 
+void MainWindow::closeEvent(QCloseEvent* event) {
+    if (confirmDiscardIfDirty())
+        event->accept();
+    else
+        event->ignore();
+}
+
 bool MainWindow::confirmDiscardIfDirty() {
     if (!project_ || !project_->anyDirty()) return true;
     const auto r = QMessageBox::question(
         this, "Unsaved changes",
-        "There are unsaved edits. Discard them and open a different map?",
+        "There are unsaved edits. Discard them and continue?",
         QMessageBox::Discard | QMessageBox::Cancel);
     return r == QMessageBox::Discard;
 }

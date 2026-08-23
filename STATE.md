@@ -3461,3 +3461,168 @@ because those hold their size while the bedroom count falls to one.
 6. **The in-game test has not been run.** The doors exist in the data; nobody
    has walked through one.
 
+
+
+---
+
+### C1 DONE + C2 UNDERWAY — application layer begun (2026-08-21)
+
+The port is complete (14 library units, all verified byte-identical against the
+Java tree). The application layer has now started.
+
+**C1 — architecture decision: DONE.** C1_ARCHITECTURE.md committed. Five
+decisions, each with a falsifier: Qt6 Widgets + OpenGL 4.6 (UI-toolkit fit, not
+measured performance); instanced draw + two-tier LOD with a MANDATORY 500k-
+instance-at-1440p harness before any viewport code; the game's own
+.lotpack/.lotheader files ARE the working store (no DB, flush on save, LRU
+evict); in-memory per-session undo; one process. CHUNKS C1 ticked [x].
+
+**C2 — working store + first UI slice: DONE and running on real data.**
+
+MapProject (library, Qt-free, 36 tests):
+- Enumerates cells from a map dir; a cell counts only if BOTH X_Y.lotheader and
+  world_X_Y.lotpack exist (orphan files ignored).
+- LRU cache with a cap; clean cells evict LRU-first, DIRTY CELLS ARE NEVER
+  EVICTED (evicting one would silently drop unsaved edits).
+- Atomic save: write to <file>.tmp then rename, so a crash mid-write cannot
+  corrupt the existing map file (C2 "crash safety").
+- Verified: edit through CellEditor → markDirty → save → reopen from scratch →
+  edit present on disk. saveAll flushes every dirty cell.
+
+MainWindow (Qt6 app):
+- File → Open Map… (Qt's own dialog with DontUseNativeDialog — the KDE Wayland
+  portal fails silently otherwise), cell-list dock, load-on-click showing room
+  count / non-empty squares / level range, status bar with resident+dirty count.
+- Recent Maps: File → Open Recent, last 10 map dirs, QSettings-persisted to
+  ~/.config/PZMapMaker, de-duped, most-recent-first, with Clear Recent.
+- menuBar()->setNativeMenuBar(false) forces the menu into the window; a toolbar
+  (Open Map…/Save Cell) backs it up. Both needed on KDE, which otherwise hoists
+  or hides the menu bar.
+- VERIFIED on real Muldraugh: opened the map dir, cell list populated (0_18…
+  4065 cells), clicked cells and saw correct room counts on building cells,
+  16384 non-empty squares on wilderness cells (128×128, correct).
+
+Library stays Qt-free: libpzformat.a has zero Qt. Only the app target links Qt6.
+CMake uses find_package(Qt6 ... QUIET) so library + 10 test suites build with or
+without Qt; the app builds when Qt is present.
+
+**C3 — viewport: UNBLOCKED but GATED.** Do not write the QOpenGLWidget shell
+until the 500k-instance-at-1440p harness is built and confirmed <4ms (C1 §1.2).
+The one falsification action outstanding before rendering.
+
+**Remaining C2 polish:** cell-search/jump box (4065 cells is a lot to scroll),
+a dirty marker in the cell list, and a close-with-unsaved-changes guard on the
+main window (confirmDiscardIfDirty exists and is used on open; wire it to
+closeEvent too).
+
+### Build/run notes (bit us, recorded so they don't again)
+- Files copied to disk sometimes land EMPTY (main.cpp, .gitignore both hit this).
+  ALWAYS `wc -l` a dropped file before building. Reliable in-place write:
+  fish `cat > file <<'END_OF_FILE' … END_OF_FILE`.
+- Stale build: if a rebuilt binary shows old behaviour, check the RIGHT file
+  changed (`grep -c "old string" file`), then `rm -rf build && cmake -S . -B
+  build -G Ninja && cmake --build build`.
+- The binary is build/pzmapmaker; fish needs `./build/pzmapmaker` (the ./).
+- Muldraugh map dir on this machine:
+  ~/.local/share/Steam/steamapps/common/ProjectZomboid/projectzomboid/media/maps/Muldraugh, KY
+  media dir (for TileIndex/atlas): .../projectzomboid/media
+
+### Handoff — SUPERSEDED (was: C2 begun; options C2-polish / harness / SpriteJoin). Current handoff is at end of file.
+
+### C2 polish — cell-search, dirty markers, close guard (2026-08-22)
+
+All three remaining C2 items are implemented. C2 is DONE.
+
+**Cell-search box.** A QLineEdit sits above the QListWidget in the Cells dock.
+Substring filter as the user types — items whose cell name doesn't match are
+hidden via QListWidgetItem::setHidden. Enter in the search box loads the first
+visible match (jumpToFirstMatch). Ctrl+G (File → Go to Cell…) focuses and
+selects the search box. Clearing the field shows all cells again
+(setClearButtonEnabled).
+
+**Dirty marker in cell list.** refreshDirtyMarkers() walks the list widget and
+sets bold font + " *" suffix on any cell in project_->dirtyCells(). Called
+after populateCellList, saveCurrent, and saveAll. Dirty state is read from the
+CellCoord stored in Qt::UserRole, not from the display text, so the marker
+never interferes with cell identification.
+
+**Close-with-unsaved guard.** closeEvent overridden; delegates to the existing
+confirmDiscardIfDirty(). event->ignore() if the user cancels, event->accept()
+otherwise. Same guard that openMap and openRecent already use.
+
+**Not changed:** CMakeLists.txt, library code, tests. Only app/mainwindow.hpp
+and app/mainwindow.cpp were touched.
+
+### Handoff — SUPERSEDED (was: C2 done; options harness / SpriteJoin). Current handoff is at end of file.
+
+### C3 render gate MEASURED — instanced draw confirmed, C1 §1.2 threshold corrected (2026-08-22)
+
+The C1 §1.2 falsifier (the one action outstanding before any C3 viewport code)
+is resolved. Full write-up: harness/FINDINGS_harness_2026-08-22.md. Summary:
+
+**The gate PASSES for instanced draw, and its threshold was mis-specified.**
+Built harness/instance_harness.cpp (throwaway, no project code): N instances,
+one glDrawElementsInstanced, 1440p FBO, alpha-blended, texture-array sampled,
+GL_TIME_ELAPSED median over 300 frames, vsync off. RTX 3070 Ti, GL 4.5 core.
+
+Measured (500k instances unless noted, median GPU ms):
+- 3px sprite,   4.5M frag,  1.2x overdraw: 0.655 ms
+- 9px sprite,  40.5M frag, 11.0x overdraw: 2.543 ms
+- 18px sprite,162.0M frag, 43.9x overdraw: 4.814 ms
+- 18px, blend OFF, same frag:              4.221 ms
+- 200k @ 18px, 64.8M frag, 17.6x:          1.903 ms  (C1's predicted 1:1 load) PASS
+- 1M   @ 18px,324.0M frag, 87.7x:          9.634 ms  (linear vs 500k)
+
+CONFIRMED (measured):
+- Instancing has no draw-call cliff: 500k->1M is linear. One instanced draw of
+  a million instances is fine. C1's "naive per-sprite draw dies" was about
+  per-sprite DRAW CALLS, not instanced draw.
+- The bound is FILL (fragments on screen), not instance count. 500k instances
+  at near-zero fill = 0.655ms (~1.3ns/inst floor); holding count fixed and only
+  growing sprite size took it to 4.814ms (7.3x). The 500k FAIL at 18px is a 44x
+  overdraw artifact of full-surface scatter, not an instancing limit.
+- Blending is minor: 0.59ms of 4.81 (12%). Dominant cost is shaded-fragment
+  throughput. (Refutes an earlier working guess that blend RMW was the lever.)
+- C1's actual predicted 1:1 load (150-200k inst) passes at 1.9ms.
+
+CORRECTION to C1 §1.2:
+- Old: "500k instances <4ms or instanced draw is wrong; fall back to chunked
+  merged geometry."
+- Actual: the 500k-<4ms gate conflated instance count and overdraw into one
+  number. Instanced draw is VIABLE; the fill ceiling at 44x overdraw is what
+  fails, and the named fallback would NOT have helped (it cuts draw-call/vertex
+  work while this is fragment-bound). The harness earned its cost by ruling out
+  the wrong fallback before it was built.
+
+UNVERIFIED / imperfect:
+- The fill curve is concave (saturating), not linear: the 9px point is 0.94ms
+  above a line through 3px and 18px. Three points don't justify a fitted law;
+  the table is the datum. Sweep 3-24px to pin it.
+- Real viewport overdraw is NOT known to be below the harness's. A dense PZ cell
+  (8 z-levels, blended back-to-front) could approach it. The 200k PASS is the
+  COUNT C1 predicted; the harness can't measure real OVERDRAW. First C3 task:
+  decode one real dense cell to instances and read its on-screen fragment count.
+
+CONSEQUENCE for C3 (the bound is fragments, so overdraw control is the work):
+- Opaque pre-pass (front-to-back, depth write) for opaque ground/floor tiles;
+  only translucent sprites take the blended back-to-front pass. Biggest lever.
+- Tier-2 LOD crossover is load-bearing, not polish: must fire before on-screen
+  fragment count exceeds fill budget. Choose the crossover against measured
+  fill, not the assumed 1:32-1:64.
+
+Instanced draw stands. The QOpenGLWidget/QOpenGLWindow shell may proceed on that
+path. C3 is now truly unblocked (gate cleared), not merely "unblocked, gated".
+
+### Handoff — CURRENT (2026-08-22). Not handing off; this is the live status pointer.
+Port: DONE. C1: DONE (with §1.2 threshold corrected above). C2: DONE.
+C3 render gate: MEASURED and cleared — instanced draw confirmed viable.
+Next options, in rough priority:
+1. C3 — the interactive viewport. Start with the QOpenGLWindow-in-
+   createWindowContainer shell (C1 §1.2 notes Wayland copy-path risk with plain
+   QOpenGLWidget). FIRST measurement inside C3: decode one real dense cell to
+   instances and read actual on-screen fragment count at 1:1 — this is the one
+   overdraw number the harness could not supply. Build the opaque pre-pass in
+   from the start; it is the main fill lever.
+2. SpriteJoin — properties-but-no-pixels 6th validation rule; library-only,
+   needs only SpriteNames, testable in the container. Good if a smaller,
+   fully-verifiable unit is wanted before the big C3 push.

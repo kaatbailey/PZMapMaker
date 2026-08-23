@@ -15,9 +15,11 @@
 #include <memory>
 #include <optional>
 
+class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
 class QLabel;
+class QCloseEvent;
 
 namespace pzmm {
 
@@ -27,17 +29,23 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
 
+protected:
+    void closeEvent(QCloseEvent* event) override;
+
 private slots:
     void openMap();
     void openRecent();
     void onCellActivated(QListWidgetItem* item);
     void saveCurrent();
     void saveAll();
+    void filterCells(const QString& text);
+    void jumpToFirstMatch();
 
 private:
     void buildMenus();
     void buildDockPanels();
     void populateCellList();
+    void refreshDirtyMarkers();
     void setStatus(const QString& msg);
     bool confirmDiscardIfDirty();
 
@@ -58,6 +66,7 @@ private:
     std::optional<pzformat::CellCoord> currentCell_;
 
     // UI
+    QLineEdit* cellSearch_ = nullptr;
     QListWidget* cellList_ = nullptr;
     QLabel* placeholder_ = nullptr;
 };
