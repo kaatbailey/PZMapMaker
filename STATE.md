@@ -3613,16 +3613,63 @@ CONSEQUENCE for C3 (the bound is fragments, so overdraw control is the work):
 Instanced draw stands. The QOpenGLWidget/QOpenGLWindow shell may proceed on that
 path. C3 is now truly unblocked (gate cleared), not merely "unblocked, gated".
 
-### Handoff — CURRENT (2026-08-22). Not handing off; this is the live status pointer.
-Port: DONE. C1: DONE (with §1.2 threshold corrected above). C2: DONE.
-C3 render gate: MEASURED and cleared — instanced draw confirmed viable.
-Next options, in rough priority:
-1. C3 — the interactive viewport. Start with the QOpenGLWindow-in-
-   createWindowContainer shell (C1 §1.2 notes Wayland copy-path risk with plain
-   QOpenGLWidget). FIRST measurement inside C3: decode one real dense cell to
-   instances and read actual on-screen fragment count at 1:1 — this is the one
-   overdraw number the harness could not supply. Build the opaque pre-pass in
-   from the start; it is the main fill lever.
-2. SpriteJoin — properties-but-no-pixels 6th validation rule; library-only,
-   needs only SpriteNames, testable in the container. Good if a smaller,
-   fully-verifiable unit is wanted before the big C3 push.
+### C3 step 1 — GL shell live + dense-cell census MEASURED (2026-08-23)
+
+Delivered: app/mapview.hpp, app/mapview.cpp wired into MainWindow via a
+QStackedWidget (placeholder index 0, GL viewport index 1). On first cell load
+the stack switches to the GL surface. QOpenGLWindow in createWindowContainer —
+NOT QOpenGLWidget, per C1 §1.2 line 60 (Wayland copy-path avoidance). Context
+comes up clean on Garuda/KDE/Wayland, no XWayland fallback, no errors.
+
+MEASURED — dense downtown cell 43_26, Muldraugh, Build 42 (256x256, 3 levels):
+  instances:     135,635
+  non-empty sq:   70,688  (2.07 tiles/square avg)
+  levels:         0..2
+
+Fragment estimate (bounding 64x32 quad, 0.5 diamond-alpha factor — both
+assumed, not measured; instance count is exact):
+  whole cell drawn: ~139M drawn fragments = ~38x overdraw on 2560x1440
+  at 1:1 (~2.7% of cell on screen): ~3,700 instances, ~3.8M frag, ~1x overdraw
+
+WHAT THIS CONFIRMS:
+1. At 1:1 zoom (the editing view) the viewport is trivially safe. ~1x overdraw
+   at normal editing zoom. Enormous headroom. No optimisation needed there.
+2. Zoomed-out whole-cell view is the fill risk, not 1:1. 135k instances is well
+   under the harness's ~415k instance ceiling, but whole-cell drawn at once is
+   ~38x overdraw (~139M frag) — by the harness's 44x→4.8ms reference, ~4.1ms
+   for one cell at full zoom. Over budget, and the editor will show multiple
+   cells when zoomed out.
+3. Instance count is a non-issue for real cells. The risk is fragments/overdraw
+   at low zoom. This confirms and sharpens the harness finding.
+
+CALIBRATION TARGET FOR LOD (now concrete, was "1:32-1:64 assumed"):
+  LOD must fire before on-screen drawn fragments approach the fill budget.
+  Per the harness, fill budget ≈ 415k blended 18px-equivalent fragments.
+  Per the census, whole 43_26 at 1:1 = ~139M drawn frag.
+  LOD crossover needed before zoom-out brings >~3x the 1:1 on-screen tile size,
+  i.e. well before the whole cell is visible at full resolution.
+  Exact crossover zoom should be measured against the real tile draw (step 2),
+  not estimated from these bounding-quad numbers.
+
+HONESTY NOTE — what is exact vs assumed:
+  EXACT: instance count (135,635), square count (70,688), level range (0..2).
+         These are a direct walk of the tile data via CellData::tilesAt().
+  ASSUMED: kSpriteFragments = 64x32 = 2048px bounding quad; 0.5 diamond factor.
+           Fragment/overdraw numbers are ±2x until real textured tiles are drawn
+           and the actual fragment cost is GPU-timed. That is step 2's job.
+
+NEXT STEP (C3 step 2):
+  Build the textured tile draw with the opaque pre-pass from the start:
+  - Pass 1: opaque tiles, front-to-back, depth write ON. Early-Z kills most
+    overdraw before it reaches the fragment shader. Biggest fill lever.
+  - Pass 2: translucent tiles only, back-to-front, depth write OFF.
+  GPU-time both passes on 43_26 and record real fragment cost. This replaces
+  the bounding-quad estimate above with a measured number.
+  Atlas step deferred: use a 1x1 white texture per tile type initially so the
+  draw call structure and timing are real without needing the atlas ported first.
+
+### Status pointer — 2026-08-23 (live, not a handoff)
+Port: DONE. C1: DONE (§1.2 threshold corrected). C2: DONE. C3: IN PROGRESS.
+C3 step 1: GL shell live on Wayland, census measured. See above.
+C3 step 2: textured draw + opaque pre-pass + GPU timing. Not started.
+

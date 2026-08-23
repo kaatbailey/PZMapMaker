@@ -77,20 +77,24 @@ target_compile_options(pz_validate PRIVATE -Wall -Wextra -Wpedantic)
 # ---------------------------------------------------------------------------
 # Application layer: Qt6 shell  (optional — only if Qt6 is found)
 # ---------------------------------------------------------------------------
-find_package(Qt6 COMPONENTS Widgets QUIET)
+find_package(Qt6 COMPONENTS Widgets OpenGL OpenGLWidgets QUIET)
 if(Qt6_FOUND)
     message(STATUS "Qt6 found (${Qt6_VERSION}) — building pzmapmaker app")
     qt_standard_project_setup()
     qt_add_executable(pzmapmaker
         app/main.cpp
         app/mainwindow.cpp
+        app/mapview.cpp
     )
-    # MainWindow uses Q_OBJECT (signals/slots) -> the meta-object compiler must
-    # run. qt_add_executable turns AUTOMOC on, but be explicit so a future
-    # reader doesn't wonder why moc output appears.
+    # MainWindow and MapView use Q_OBJECT (signals/slots) -> the meta-object
+    # compiler must run. qt_add_executable turns AUTOMOC on, but be explicit so
+    # a future reader doesn't wonder why moc output appears.
     set_target_properties(pzmapmaker PROPERTIES AUTOMOC ON)
     target_include_directories(pzmapmaker PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/app)
-    target_link_libraries(pzmapmaker PRIVATE pzformat Qt6::Widgets)
+    # Qt6::OpenGL pulls in QOpenGLWindow and the GL function wrappers. GL itself
+    # comes transitively but link it explicitly for clarity.
+    target_link_libraries(pzmapmaker PRIVATE
+        pzformat Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
     target_compile_options(pzmapmaker PRIVATE -Wall -Wextra)
 else()
     message(STATUS "Qt6 NOT found — skipping pzmapmaker app (library + tests still build)")

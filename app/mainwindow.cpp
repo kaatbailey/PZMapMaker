@@ -1,5 +1,7 @@
 #include "mainwindow.hpp"
 
+#include "mapview.hpp"
+
 #include <QAction>
 #include <QCloseEvent>
 #include <QDockWidget>
@@ -14,11 +16,13 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QSettings>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QString>
 #include <QStringList>
 #include <QToolBar>
 #include <QVBoxLayout>
+#include <QWidget>
 
 #include <exception>
 
@@ -38,9 +42,24 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle("PZMapMaker");
     resize(1200, 800);
 
+    // Central area is a stack: the placeholder label until a map is open, then
+    // the GL viewport. The viewport is a QOpenGLWindow (not QOpenGLWidget) put
+    // in a QWidget container — C1 §1.2: QOpenGLWidget's Wayland copy path is
+    // avoided this way, which matters on this KDE/Wayland target.
+    stack_ = new QStackedWidget(this);
+
     placeholder_ = new QLabel("PZMapMaker\nFile → Open Map… to begin.");
     placeholder_->setAlignment(Qt::AlignCenter);
-    setCentralWidget(placeholder_);
+    stack_->addWidget(placeholder_);            // index 0
+
+    view_ = new MapView();
+    QWidget* viewContainer = QWidget::createWindowContainer(view_, stack_);
+    viewContainer->setMinimumSize(320, 240);
+    viewContainer->setFocusPolicy(Qt::StrongFocus);
+    stack_->addWidget(viewContainer);           // index 1
+
+    stack_->setCurrentIndex(0);
+    setCentralWidget(stack_);
 
     buildMenus();
     buildDockPanels();
@@ -271,17 +290,24 @@ void MainWindow::onCellActivated(QListWidgetItem* item) {
     try {
         pzformat::LoadedCell& lc = project_->load(c);
         currentCell_ = c;
+
+        // Hand the cell to the viewport. It runs the dense-cell census (the C3
+        // step-1 measurement) and, later, renders. Switch the central stack
+        // from the placeholder to the GL surface on first load.
+        view_->setCell(*lc.data);
+        stack_->setCurrentIndex(1);
+
         const long nonEmpty = lc.data->nonEmptySquares();
         const auto rooms = lc.data->header().rooms.size();
-        placeholder_->setText(
-            QString("Cell %1\n%2 rooms · %3 non-empty squares · levels %4..%5")
-                .arg(QString::fromStdString(c.name()))
-                .arg(rooms)
-                .arg(nonEmpty)
-                .arg(lc.data->minLevel())
-                .arg(lc.data->maxLevel()));
-        setStatus(QString("Loaded %1 · %2 resident · %3 dirty")
+        const CellCensus& cen = view_->lastCensus();
+        setStatus(QString("Cell %1 · %2 rooms · %3 non-empty · levels %4..%5 · "
+                          "%6 instances · %7 resident · %8 dirty")
                       .arg(QString::fromStdString(c.name()))
+                      .arg(rooms)
+                      .arg(nonEmpty)
+                      .arg(lc.data->minLevel())
+                      .arg(lc.data->maxLevel())
+                      .arg(cen.instances)
                       .arg(project_->residentCount())
                       .arg(project_->dirtyCells().size()));
     } catch (const std::exception& e) {

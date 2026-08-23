@@ -20,8 +20,11 @@ class QListWidget;
 class QListWidgetItem;
 class QLabel;
 class QCloseEvent;
+class QStackedWidget;
 
 namespace pzmm {
+
+class MapView;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -66,9 +69,11 @@ private:
     std::optional<pzformat::CellCoord> currentCell_;
 
     // UI
+    QStackedWidget* stack_ = nullptr; // placeholder (0) / viewport (1)
     QLineEdit* cellSearch_ = nullptr;
     QListWidget* cellList_ = nullptr;
-    QLabel* placeholder_ = nullptr;
+    QLabel* placeholder_ = nullptr;   // shown before a map is open
+    MapView* view_ = nullptr;         // GL viewport; central widget once created
 };
 
 } // namespace pzmm

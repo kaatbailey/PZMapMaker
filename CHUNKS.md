@@ -65,7 +65,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 |---|---|---|---|
 | `[x]` | **C1** Architecture decision gate | — | **A written decision.** |
 | `[x]` | **C2** Working store and project format | C1 | **DONE 2026-08-22.** MapProject (enumerate, LRU, atomic save, edit→save→reopen no loss, 36 tests) + Qt6 MainWindow (open map, cell-list dock with search/Ctrl+G, load-on-click, Recent Maps, dirty marker, close guard). STATE §"C1 DONE + C2 UNDERWAY" and §"C2 polish". |
-| `[ ]` | **C3** Interactive viewport | C1, C2 | **Unblocked — render gate cleared 2026-08-22.** Instanced draw CONFIRMED viable (harness/FINDINGS_harness_2026-08-22.md); C1 §1.2's 500k-<4ms threshold was mis-specified (conflated instance count with overdraw), corrected in C1_ARCHITECTURE §5. Bound is fill/overdraw, not draw calls. Build QOpenGLWindow-in-createWindowContainer shell with an opaque front-to-back pre-pass from the start; first measurement is real dense-cell overdraw at 1:1. |
+| `[~]` | **C3** Interactive viewport | C1, C2 | **IN PROGRESS.** Step 1 done: QOpenGLWindow-in-createWindowContainer shell live on Garuda/Wayland; dense-cell census measured (43_26: 135,635 inst, ~38x whole-cell overdraw, ~1x at 1:1 — see STATE). Step 2 next: textured draw + opaque front-to-back pre-pass + GPU timing. |
 | `[!]` | **C4** Tool layer: brushes, selection, undo UI | C3, A3 | Blocked |
 | `[!]` | **C5** Shell: panels, tile picker, validation panel | C4, A4 | Blocked |
 
