@@ -213,9 +213,12 @@ flat out int  vZ;
 out vec2 vUV;
 
 void main() {
-    vec4 meta = texelFetch(uLayerMeta, ivec2(int(iLayer), 0), 0);
-    float uvW = meta.x, uvH = meta.y;      // fraction of atlas layer used
-    float ox  = meta.z, oy  = meta.w;      // sprite draw offset (1:1 px)
+    // Two texels per layer: (uvW,uvH,ox,oy) and (fx,fy,_,_).
+    vec4 m0 = texelFetch(uLayerMeta, ivec2(int(iLayer) * 2,     0), 0);
+    vec4 m1 = texelFetch(uLayerMeta, ivec2(int(iLayer) * 2 + 1, 0), 0);
+    float uvW = m0.x, uvH = m0.y;          // fraction of atlas layer used
+    float ox  = m0.z, oy  = m0.w;          // sprite offset within its logical tile
+    float fx  = m1.x, fy  = m1.y;          // logical tile size (per-sprite!)
 
     // Sprite pixel size at 1:1.
     float spW = uvW * uAtlasDims.x;
@@ -230,13 +233,13 @@ void main() {
     float ax = (iWorld.x - iWorld.y) * (tw * 0.5);
     float ay = (iWorld.x + iWorld.y) * (tw * 0.25) - float(zlev) * (tw * 1.5);
 
-    // PZ places the sprite TOP-LEFT at (ax - 32 + ox, ay - 96 + oy).
-    // The -32/-96 is the offsetX/offsetY passed into IsoSprite.render for
-    // normal tiles (32*scale, 96*scale from RenderGhostTileColor). The ox/oy
-    // from the pack entry are additive corrections to that top-left anchor.
-    // (Not bottom-centre — that assumption was wrong and caused the fence stagger.)
-    float lx = ax - tw * 0.5 + ox + aCorner.x * spW;
-    float ly = ay - tw * 1.5 + oy + aCorner.y * spH;
+    // Sprite top-left = anchor - (fx/2, fy-32) + (ox, oy). Derived from PZ's
+    // prepareToRenderSprite where offsetX/Y depend on the sprite's logical tile
+    // size, NOT hardcoded to 32/96. Walls have fy=256 -> anchor Y subtract is
+    // 224 (not 96), which is why they were shifted before. Floors/roofs at
+    // fx=64,fy=128 still get the old -32,-96 as a special case of this formula.
+    float lx = ax - fx * 0.5 + ox + aCorner.x * spW;
+    float ly = ay - (fy - 32.0) + oy + aCorner.y * spH;
 
     // Apply zoom about the origin, then translate by pan.
     float px = lx * uScale + uOrigin.x;
@@ -373,20 +376,28 @@ void MapView::uploadSpriteAtlas() {
     }
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    // Per-layer meta: (uvW, uvH, ox, oy) as RGBA32F, one texel per layer.
-    std::vector<float> meta(static_cast<size_t>(nLayers) * 4, 0.0f);
+    // Per-layer meta: 2 RGBA32F texels per layer, laid out as a 2N x 1 strip.
+    //   texel 0 (x=2L):   (uvW, uvH, ox, oy)  -- sub-rect + sprite offset
+    //   texel 1 (x=2L+1): (fx,  fy,  0,  0)   -- logical tile size (for anchor)
+    // fx/fy differ per sprite (floors 64x128, walls 128x256, etc.), so the
+    // shader must derive the anchor offset from them, not use a hardcoded 32/96.
+    std::vector<float> meta(static_cast<size_t>(nLayers) * 2 * 4, 0.0f);
 
     for (int L = 0; L < nLayers; ++L) {
         if (L >= usableLayers) break;   // array can't hold more; rest stay blank
         const auto& S = sprites_[L];
+        const size_t base = size_t(L) * 8;   // 2 texels x 4 floats
         if (S.found && !S.rgba.empty()) {
             // Blit the w*h sprite into the bottom-left of this layer.
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, L, S.w, S.h, 1,
                             GL_RGBA, GL_UNSIGNED_BYTE, S.rgba.data());
-            meta[L*4+0] = float(S.w) / float(atlasW_);   // uvW
-            meta[L*4+1] = float(S.h) / float(atlasH_);   // uvH
-            meta[L*4+2] = float(S.ox);
-            meta[L*4+3] = float(S.oy);
+            meta[base+0] = float(S.w) / float(atlasW_);   // uvW
+            meta[base+1] = float(S.h) / float(atlasH_);   // uvH
+            meta[base+2] = float(S.ox);
+            meta[base+3] = float(S.oy);
+            meta[base+4] = float(S.fx);                    // logical tile W
+            meta[base+5] = float(S.fy);                    // logical tile H
+            meta[base+6] = 0.0f; meta[base+7] = 0.0f;
         } else {
             // Missing sprite: fully transparent. These are the ~10 no-sprite
             // vegetation tiles (species substituted at load in-game). Markers
@@ -395,9 +406,11 @@ void MapView::uploadSpriteAtlas() {
             std::vector<std::uint8_t> mark(static_cast<size_t>(mW) * mH * 4, 0);
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, L, mW, mH, 1,
                             GL_RGBA, GL_UNSIGNED_BYTE, mark.data());
-            meta[L*4+0] = float(mW) / float(atlasW_);
-            meta[L*4+1] = float(mH) / float(atlasH_);
-            meta[L*4+2] = 0.0f; meta[L*4+3] = 0.0f;
+            meta[base+0] = float(mW) / float(atlasW_);
+            meta[base+1] = float(mH) / float(atlasH_);
+            meta[base+2] = 0.0f; meta[base+3] = 0.0f;
+            meta[base+4] = 64.0f; meta[base+5] = 128.0f;   // default tile size
+            meta[base+6] = 0.0f; meta[base+7] = 0.0f;
         }
     }
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -405,11 +418,11 @@ void MapView::uploadSpriteAtlas() {
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    // Upload per-layer meta as an Nx1 RGBA32F texture, sampled by layer index.
+    // Upload per-layer meta as a 2N x 1 RGBA32F texture, sampled by (2*layer+n).
     if (layerMeta_) { glDeleteTextures(1, &layerMeta_); layerMeta_ = 0; }
     glGenTextures(1, &layerMeta_);
     glBindTexture(GL_TEXTURE_2D, layerMeta_);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, nLayers, 1, 0,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, nLayers * 2, 1, 0,
                  GL_RGBA, GL_FLOAT, meta.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);

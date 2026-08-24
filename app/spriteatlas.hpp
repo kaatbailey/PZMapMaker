@@ -29,8 +29,11 @@ class SpriteAtlas {
 public:
     // One RGBA sprite ready to upload as an atlas layer.
     struct Layer {
-        int w = 0, h = 0;             // sprite pixel size (from the pack entry)
-        int ox = 0, oy = 0;           // draw offset (entry ox/oy), for placement
+        int w = 0, h = 0;             // trimmed sprite pixel size (from pack entry)
+        int ox = 0, oy = 0;           // sprite offset within its logical tile
+        int fx = 0, fy = 0;           // logical tile size (64x128 for floors,
+                                       // 128x256 for tall walls, etc.). PZ places
+                                       // sprite top-left at anchor - (fx/2, fy-32) + (ox, oy).
         std::vector<std::uint8_t> rgba;  // w*h*4, or empty if the name had no sprite
         bool found = false;
     };

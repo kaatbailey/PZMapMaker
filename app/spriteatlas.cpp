@@ -117,6 +117,7 @@ SpriteAtlas::buildLayers(const std::vector<std::string>& names) {
 
             Layer L;
             L.w = sw; L.h = sh; L.ox = entry.ox; L.oy = entry.oy;
+            L.fx = entry.fx; L.fy = entry.fy;
             L.rgba.resize(static_cast<size_t>(sw) * sh * 4);
             for (int row = 0; row < sh; ++row) {
                 const uchar* src = sprite.constScanLine(row);
