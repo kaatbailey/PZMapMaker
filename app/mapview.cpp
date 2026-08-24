@@ -441,16 +441,19 @@ void MapView::uploadInstances() {
 double MapView::timedDraw(GLuint query, long first, long count, bool opaquePass) {
     if (count <= 0) return 0.0;
     glUniform1i(uOpaquePass_, opaquePass ? 1 : 0);
+    // DEPTH-OFF TEST: both passes now run with depth test disabled, relying on
+    // painter's order (opaque floors first, then translucent, both back-to-front
+    // by draw order). If this fixes the post-pan vanishing, the bug was the depth
+    // buffer (QOpenGLWidget FBO depth attachment not clearing/persisting on this
+    // Wayland setup). The opaque pass keeps blend OFF + alpha-test discard so
+    // transparent sprite pixels don't paint; the translucent pass blends.
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
     if (opaquePass) {
         glDisable(GL_BLEND);
-        glEnable(GL_DEPTH_TEST);
-        glDepthMask(GL_TRUE);
-        glDepthFunc(GL_LESS);
     } else {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glDisable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
     }
 
     // Point the instanced attributes at this pass's slice by re-specifying the
@@ -653,6 +656,12 @@ void MapView::keyPressEvent(QKeyEvent* e) {
 
 void MapView::paintGL() {
     if (!glReady_) return;
+    // Re-assert the viewport every frame. On this QOpenGLWidget/Wayland setup the
+    // GL viewport is not reliably preserved between paints — a camera-only
+    // update() (pan, F) left it wrong, so draws landed off the visible surface
+    // and most tiles vanished; only resizeGL()'s glViewport call fixed it. Setting
+    // it here makes every frame correct regardless of what Qt did in between.
+    glViewport(0, 0, viewW_, viewH_);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     if (!haveCell_ || (opaque_.empty() && translucent_.empty())) return;
 
