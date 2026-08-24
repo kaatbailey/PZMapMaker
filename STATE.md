@@ -3783,12 +3783,56 @@ Known cosmetic gaps (NOT bugs, deferred):
 - Depth ordering between overlapping sprites may have minor quirks at some zooms;
   not obviously broken. Revisit if editing needs precise pick order.
 
+### C3 step 5 — level selector + downtown verification + layer-cap limit (2026-08-23)
+
+Level selector (Model B) done and VERIFIED. QSpinBox in the status bar + keys
+([ ] step, 0-7 direct) show all tiles with z <= chosen level. Shader discards
+z > uMaxLevel. Two-way synced with the view; range auto-matches the cell's
+[minLevel,maxLevel]; grays out on single-level cells. Verified on the KNOX BANK
+in 41_37: level 1 shows the furnished ground floor (desks, ATM, counter), level
+2 shows the upper structure — floor peeling works.
+
+Also this session: default view is now 1:1 centred on the cell (readable) not
+fit-to-window confetti (F still gives the whole-cell overview); missing sprites
+render invisible not magenta markers; texturepacks path persists via QSettings
+and auto-loads on startup (no more re-picking).
+
+Verified the renderer on real geometry: 43_46 is rural (content census:
+blends_natural=68k, walls=0, floors=0 — correctly all grass/trees/road, not a
+bug). 41_37 is downtown (floors=8912 walls=8035 roofs=3779, levels -1..4) and
+renders as a full furnished residential+commercial block. The renderer was never
+broken; earlier "black" cells were either rural or the layer-cap bug below.
+
+KNOWN LIMITATION — texture-array layer cap (the real remaining C3 issue):
+  The atlas is one GL texture-array layer per distinct sprite. A downtown cell
+  uses ~3972 distinct sprites, but GL_MAX_ARRAY_TEXTURE_LAYERS is 2048 (NVIDIA).
+  glTexImage3D failed with GL_INVALID_VALUE -> blank atlas -> near-black render.
+  DIAGNOSED via a post-alloc glGetError guard (prints the GB + error instead of
+  silently going black) — it was layer COUNT, not memory (0.8 GB was fine).
+  INTERIM FIX: query the cap, clamp storage to it, skip blitting past it, shader
+  discards sprites with layer >= uLayerCount. Result: most of a dense cell
+  renders; sprites past 2048 are blank (visible as dark patches on 41_37).
+  Also cap individual sprite size at 256px (one 744x982 jumbo sprite sizes every
+  layer, so downscale oversized sprites in SpriteAtlas via QImage first).
+  PROPER FIX (own step, next): atlas PACKING — pack many sprites into each 2D
+  layer of a small array (e.g. 4096x4096 pages) instead of one-per-layer. This
+  removes the layer wall entirely and is the right long-term design.
+
+Perf note: first frame after a cell load spikes (~390ms on 41_37) — the atlas
+upload (decode+scale ~4000 PNGs) blocks the render thread. One-time per cell;
+steady-state is 0.2-1.7ms. Fine for now; async upload later if it annoys.
+
 ### Status pointer — 2026-08-23 (live, not a handoff)
-Port: DONE. C1: DONE (corrected). C2: DONE. C3: IN PROGRESS (nearly complete).
-C3 steps 1-3: shell, census, two-pass draw, pan/zoom. DONE.
-C3 step 4a: sprite atlas bridge (pack->QImage->pixels). DONE.
-C3 step 4b: real sprite art rendering. DONE — viewport shows actual game graphics.
-C3 remaining: multi-level display (currently draws all z stacked; may want a
-  level selector), and polish. Then C4: picking/editing (click a tile, see/change
-  what's there). The viewport is now a real map view; C4 makes it an editor.
+Port: DONE. C1: DONE (corrected). C2: DONE.
+C3: FUNCTIONALLY COMPLETE as a viewer. Real PZ art, pan/zoom, level selector
+  (floor peeling verified on KNOX BANK), persistent texturepacks, readable
+  default. One known limitation: 2048-layer cap blanks some sprites on dense
+  cells (interim clamp in place; proper fix = atlas packing).
+NEXT, choose:
+  (a) Atlas packing — remove the layer cap so dense cells render 100%. Pure
+      rendering-quality work, self-contained.
+  (b) C4 — picking/editing: click a tile, see its name/properties, change it.
+      Turns the viewer into an editor. The bigger, more consequential chunk.
+  (a) makes what exists flawless; (b) is the next real capability. Either is a
+  clean starting point.
 

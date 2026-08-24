@@ -10,6 +10,8 @@
 #include <QFont>
 #include <QKeySequence>
 #include <QLabel>
+#include <QSpinBox>
+#include <QSignalBlocker>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QListWidgetItem>
@@ -68,6 +70,26 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                 .arg(t.translucentMs, 0, 'f', 2)
                 .arg(t.totalMs(), 0, 'f', 2));
     });
+
+    // Level selector (Model B): a spinbox in the status bar shows all tiles at
+    // or below the chosen z. Two-way synced: keys ([ ] and digits) in the view
+    // update the box, and the box updates the view.
+    levelLabel_ = new QLabel("Level:");
+    levelSpin_ = new QSpinBox();
+    levelSpin_->setRange(0, 7);
+    levelSpin_->setToolTip("Show tiles at or below this level. Keys: [ ] or 0-7 in the view.");
+    statusBar()->addPermanentWidget(levelLabel_);
+    statusBar()->addPermanentWidget(levelSpin_);
+    connect(levelSpin_, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, [this](int z) { if (view_) view_->setMaxLevel(z); });
+    connect(view_, &MapView::maxLevelChanged, this, [this](int z) {
+        // Reflect view-side changes (keys, or reset on cell load) without
+        // re-triggering the view via the spinbox's own signal. Also keep the
+        // range matched to the loaded cell's actual level span.
+        QSignalBlocker block(levelSpin_);
+        levelSpin_->setRange(view_->cellMinLevel(), view_->cellMaxLevel());
+        levelSpin_->setValue(z);
+    });
     view_->setMinimumSize(320, 240);
     view_->setFocusPolicy(Qt::StrongFocus);
     stack_->addWidget(view_);                    // index 1
@@ -78,6 +100,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     buildMenus();
     buildDockPanels();
     statusBar()->showMessage("Ready");
+
+    // Auto-load the texturepacks indexed last session, so sprites just work
+    // without re-picking the folder every launch.
+    const QString savedTex = QSettings().value("texturepacksDir").toString();
+    if (!savedTex.isEmpty() && QDir(savedTex).exists())
+        loadTexturepacks(savedTex, /*fromUser=*/false);
 }
 
 void MainWindow::buildMenus() {
@@ -383,22 +411,25 @@ bool MainWindow::confirmDiscardIfDirty() {
 }
 
 void MainWindow::setTexturepacks() {
-    // Default to the common Steam Linux location if it exists, so the picker
-    // opens in the right place. Note the doubled projectzomboid/ segment — that
-    // is the real B42 layout on this platform.
-    QString start;
-    const QString guess = QDir::homePath() +
-        "/.local/share/Steam/steamapps/common/ProjectZomboid/projectzomboid/media/texturepacks";
-    if (QDir(guess).exists()) start = guess;
-
+    // Default to the saved path, else the common Steam Linux location.
+    QString start = QSettings().value("texturepacksDir").toString();
+    if (start.isEmpty() || !QDir(start).exists()) {
+        const QString guess = QDir::homePath() +
+            "/.local/share/Steam/steamapps/common/ProjectZomboid/projectzomboid/media/texturepacks";
+        if (QDir(guess).exists()) start = guess;
+    }
     const QString dir = QFileDialog::getExistingDirectory(
         this, "Select PZ texturepacks folder (contains .pack files)", start);
     if (dir.isEmpty()) return;
+    loadTexturepacks(dir, /*fromUser=*/true);
+}
+
+void MainWindow::loadTexturepacks(const QString& dir, bool fromUser) {
     try {
         const std::size_t n = atlas_.indexDir(dir.toStdString());
+        QSettings().setValue("texturepacksDir", dir);   // persist for next launch
         setStatus(QString("Indexed %1 sprites from texturepacks").arg(n));
-        // If a cell is already loaded, build its layers now so the effect is
-        // immediate and testable.
+        // If a cell is already loaded, build its layers now.
         if (project_ && currentCell_) {
             pzformat::LoadedCell& lc = project_->load(*currentCell_);
             const auto& names = lc.data->header().tileNames;
@@ -413,7 +444,8 @@ void MainWindow::setTexturepacks() {
                           .arg(atlas_.lastMissing()));
         }
     } catch (const std::exception& e) {
-        QMessageBox::warning(this, "Texturepacks", e.what());
+        if (fromUser) QMessageBox::warning(this, "Texturepacks", e.what());
+        // On startup (fromUser=false) a stale saved path just fails quietly.
     }
 }
 

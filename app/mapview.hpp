@@ -80,12 +80,21 @@ public:
     // of the GL atlas on the next paint. Call after setCell.
     void setSprites(std::vector<SpriteAtlas::Layer> layers);
 
+    // Level selector (Model B): show all tiles with z <= maxLevel. Clamped to
+    // the loaded cell's [minLevel, maxLevel]. Emits maxLevelChanged so a UI
+    // control can stay in sync when keys change it.
+    void setMaxLevel(int z);
+    int  maxLevel() const noexcept { return maxLevel_; }
+    int  cellMinLevel() const noexcept { return census_.minLevel; }
+    int  cellMaxLevel() const noexcept { return census_.maxLevel; }
+
     const CellCensus& lastCensus() const noexcept { return census_; }
     const PassTiming& lastTiming() const noexcept { return timing_; }
 
 signals:
     void censusReady(const CellCensus& c);
     void timingReady(const PassTiming& t);
+    void maxLevelChanged(int z);
 
 protected:
     void initializeGL() override;
@@ -125,6 +134,7 @@ private:
     // Camera: compute the fit-to-window zoom+pan that frames the whole cell.
     // Called on setCell and resize so a fresh cell always starts framed.
     void fitToWindow();
+    void resetView1to1();
 
     // --- CPU-side state ---
     CellCensus census_;
@@ -136,6 +146,7 @@ private:
     bool  spritesDirty_ = false;
     int   atlasW_ = 1, atlasH_ = 1;           // GL atlas array layer dimensions
     int   atlasLayers_ = 0;
+    int   usableLayers_ = 0;                  // min(atlasLayers_, GL array cap)
     bool  haveCell_ = false;
     bool  dirtyUpload_ = false;               // instance data changed, re-upload
     bool  glReady_ = false;                   // 4.5 core functions resolved
@@ -148,6 +159,7 @@ private:
     bool  dragging_ = false;
     bool  needsFit_ = false;                  // frame the cell on next paint
     int   lastMouseX_ = 0, lastMouseY_ = 0;
+    int   maxLevel_ = 7;                       // level selector: show z <= this
 
     // --- GL-side state (0 until initializeGL) ---
     GLuint prog_ = 0;
@@ -160,6 +172,8 @@ private:
     GLint  uSurface_ = -1, uTileSize_ = -1, uOpaquePass_ = -1;
     GLint  uScale_ = -1, uOrigin_ = -1;
     GLint  uLayerMeta_ = -1, uAtlasDims_ = -1;
+    GLint  uMaxLevel_ = -1;
+    GLint  uLayerCount_ = -1;
     int    viewW_ = 1, viewH_ = 1;
     int    cellSize_ = 256;   // tiles per side of the loaded cell, for fit math
 };

@@ -115,8 +115,39 @@ void MapView::buildInstances(const pzformat::CellData& cell) {
 void MapView::setCell(const pzformat::CellData& cell) {
     census_ = censusOf(cell);
     buildInstances(cell);
+
+    // Diagnostic: what is this cell actually made of? Count instances by tile-
+    // name prefix so "wilderness vs buildings" is a fact, not a guess.
+    {
+        const auto& names = cell.header().tileNames;
+        long blendsNat = 0, floors = 0, walls = 0, roofs = 0, veg = 0,
+             street = 0, other = 0;
+        auto pref = [](const std::string& s, const char* p) {
+            return s.rfind(p, 0) == 0; };
+        const int n = cell.cellSize();
+        for (int z = cell.minLevel(); z <= cell.maxLevel(); ++z)
+            for (int x = 0; x < n; ++x)
+                for (int y = 0; y < n; ++y)
+                    for (std::int32_t ti : cell.tilesAt(x, y, z)) {
+                        if (ti < 0 || ti >= (int)names.size()) continue;
+                        const std::string& nm = names[ti];
+                        if (pref(nm,"blends_natural_")) ++blendsNat;
+                        else if (pref(nm,"blends_street")||pref(nm,"street_")) ++street;
+                        else if (pref(nm,"floors_")) ++floors;
+                        else if (pref(nm,"walls_")||pref(nm,"fencing_")) ++walls;
+                        else if (pref(nm,"roofs_")) ++roofs;
+                        else if (pref(nm,"vegetation_")||pref(nm,"jumbo_")) ++veg;
+                        else ++other;
+                    }
+        std::printf("[MapView content] blends_natural=%ld street=%ld floors=%ld "
+                    "walls=%ld roofs=%ld vegetation=%ld other=%ld\n",
+                    blendsNat, street, floors, walls, roofs, veg, other);
+    }
+
     haveCell_ = true;
     needsFit_ = true;   // frame the new cell on the next paint (dims known then)
+    maxLevel_ = census_.maxLevel;   // show all levels by default
+    emit maxLevelChanged(maxLevel_);
     emit censusReady(census_);
 
     std::printf(
@@ -146,6 +177,15 @@ void MapView::setSprites(std::vector<SpriteAtlas::Layer> layers) {
     if (isValid()) update();
 }
 
+void MapView::setMaxLevel(int z) {
+    const int lo = census_.minLevel, hi = census_.maxLevel;
+    const int clamped = std::clamp(z, lo, hi);
+    if (clamped == maxLevel_) return;
+    maxLevel_ = clamped;
+    emit maxLevelChanged(maxLevel_);
+    if (isValid()) update();
+}
+
 void MapView::ensureProgram() {
     if (prog_) return;
 
@@ -169,6 +209,7 @@ uniform sampler2D uLayerMeta;  // per-layer (uvW,uvH,ox,oy), Nx1
 uniform vec2  uAtlasDims;   // atlas layer size in px (max sprite w,h)
 
 flat out uint vLayer;
+flat out int  vZ;
 out vec2 vUV;
 
 void main() {
@@ -203,6 +244,7 @@ void main() {
     float depth = 0.2 + clamp(order, 0.0, 1.0) * 0.6;
     gl_Position = vec4(ndc, depth, 1.0);
     vLayer = iLayer;
+    vZ = zlev;
     // Sample only the used sub-rect of the layer (sprite sits bottom-left).
     vUV = vec2(aCorner.x * uvW, aCorner.y * uvH);
 }
@@ -211,10 +253,15 @@ void main() {
     const char* fs = R"(#version 450 core
 uniform sampler2DArray uAtlas;
 uniform int uOpaquePass;      // 1: floors, alpha-test; 0: blended
+uniform int uMaxLevel;        // hide tiles with z > this (level selector)
+uniform int uLayerCount;      // atlas array depth; sprites beyond it are blank
 flat in uint vLayer;
+flat in int  vZ;
 in vec2 vUV;
 out vec4 fragColor;
 void main() {
+    if (vZ > uMaxLevel) discard;   // level selector: show z <= uMaxLevel
+    if (int(vLayer) >= uLayerCount) discard;   // sprite past array cap: blank
     vec4 t = texture(uAtlas, vec3(vUV, float(vLayer)));
     if (uOpaquePass == 1) {
         // Opaque pass writes depth, so transparent sprite pixels must be
@@ -255,6 +302,8 @@ void main() {
     uOrigin_     = glGetUniformLocation(prog_, "uOrigin");
     uLayerMeta_  = glGetUniformLocation(prog_, "uLayerMeta");
     uAtlasDims_  = glGetUniformLocation(prog_, "uAtlasDims");
+    uMaxLevel_   = glGetUniformLocation(prog_, "uMaxLevel");
+    uLayerCount_ = glGetUniformLocation(prog_, "uLayerCount");
 }
 
 void MapView::makePlaceholderAtlas(int layers) {
@@ -286,19 +335,45 @@ void MapView::uploadSpriteAtlas() {
     for (const auto& L : sprites_) {
         if (L.found) { maxW = std::max(maxW, L.w); maxH = std::max(maxH, L.h); }
     }
-    atlasW_ = maxW; atlasH_ = maxH; atlasLayers_ = nLayers;
+    atlasW_ = maxW; atlasH_ = maxH;
+
+    // A texture ARRAY has a hard layer cap (GL_MAX_ARRAY_TEXTURE_LAYERS, 2048 on
+    // most NVIDIA). A downtown cell can use ~4000 distinct sprites, exceeding it
+    // -> glTexImage3D fails with GL_INVALID_VALUE and the atlas is blank. Clamp
+    // for now so most of the cell renders; sprites past the cap draw blank.
+    // PROPER FIX (later): pack many sprites per 2D layer instead of one-per-layer.
+    GLint maxLayers = 2048;
+    glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &maxLayers);
+    if (nLayers > maxLayers) {
+        std::printf("[MapView] WARNING: cell needs %d sprite layers but GPU caps "
+                    "arrays at %d. Sprites %d+ will be blank until atlas packing "
+                    "is implemented.\n", nLayers, maxLayers, maxLayers);
+        std::fflush(stdout);
+    }
+    const int usableLayers = std::min(nLayers, int(maxLayers));
+    atlasLayers_ = nLayers;   // instances still index full range; clamp storage
+    usableLayers_ = usableLayers;
 
     if (atlas_) { glDeleteTextures(1, &atlas_); atlas_ = 0; }
     glGenTextures(1, &atlas_);
     glBindTexture(GL_TEXTURE_2D_ARRAY, atlas_);
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, atlasW_, atlasH_, nLayers, 0,
+    while (glGetError() != GL_NO_ERROR) {}   // clear stale errors
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, atlasW_, atlasH_, usableLayers, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    if (GLenum e = glGetError(); e != GL_NO_ERROR) {
+        std::printf("[MapView] ATLAS ALLOC FAILED: %dx%d x %d layers = %.1f GB, "
+                    "GL error 0x%04X. Sprites will be blank.\n",
+                    atlasW_, atlasH_, usableLayers,
+                    double(atlasW_)*atlasH_*usableLayers*4/1e9, e);
+        std::fflush(stdout);
+    }
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     // Per-layer meta: (uvW, uvH, ox, oy) as RGBA32F, one texel per layer.
     std::vector<float> meta(static_cast<size_t>(nLayers) * 4, 0.0f);
 
     for (int L = 0; L < nLayers; ++L) {
+        if (L >= usableLayers) break;   // array can't hold more; rest stay blank
         const auto& S = sprites_[L];
         if (S.found && !S.rgba.empty()) {
             // Blit the w*h sprite into the bottom-left of this layer.
@@ -309,17 +384,11 @@ void MapView::uploadSpriteAtlas() {
             meta[L*4+2] = float(S.ox);
             meta[L*4+3] = float(S.oy);
         } else {
-            // Missing sprite: a SMALL semi-transparent magenta marker, not a
-            // full opaque fill. A full-layer opaque fill made every vegetation
-            // instance (tens of thousands per cell) paint a giant magenta block
-            // that blanketed the map. Give it a tiny footprint (a marker dot)
-            // and low alpha so it flags "no sprite here" without hiding tiles.
-            const int mW = std::min(16, atlasW_), mH = std::min(16, atlasH_);
-            std::vector<std::uint8_t> mark(static_cast<size_t>(mW) * mH * 4);
-            for (size_t i = 0; i < mark.size(); i += 4) {
-                mark[i+0] = 255; mark[i+1] = 0; mark[i+2] = 255;
-                mark[i+3] = 90;   // semi-transparent
-            }
+            // Missing sprite: fully transparent. These are the ~10 no-sprite
+            // vegetation tiles (species substituted at load in-game). Markers
+            // just added noise that outnumbered the real content, so hide them.
+            const int mW = std::min(2, atlasW_), mH = std::min(2, atlasH_);
+            std::vector<std::uint8_t> mark(static_cast<size_t>(mW) * mH * 4, 0);
             glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, L, mW, mH, 1,
                             GL_RGBA, GL_UNSIGNED_BYTE, mark.data());
             meta[L*4+0] = float(mW) / float(atlasW_);
@@ -482,14 +551,29 @@ void MapView::resizeGL(int w, int h) {
 
 void MapView::fitToWindow() {
     // Whole cell at 1:1 iso spans (cellSize*tileW) wide, (cellSize*tileH) tall.
-    // Pick the scale that fits with a margin, and centre it. This is what step 2
-    // computed every frame; now it just seeds the camera once per cell.
+    // Pick the scale that fits with a margin, and centre it. Bound to F: a
+    // whole-cell overview. NOT the default view — at this zoom a 256x256 cell
+    // is unreadable confetti. The default (resetView1to1) opens at real size.
     const float isoW = float(cellSize_) * kTileW;
     const float isoH = float(cellSize_) * (kTileW * 0.5f);
     const float margin = 0.92f;
     zoom_ = margin * std::min(float(viewW_) / isoW, float(viewH_) / isoH);
     panX_ = float(viewW_) * 0.5f;
     panY_ = float(viewH_) * 0.5f - (isoH * zoom_) * 0.5f;
+}
+
+void MapView::resetView1to1() {
+    // Default view: 1:1 (tiles at full 64px), centred on the MIDDLE of the cell,
+    // where buildings usually are. This is the readable view — you can tell
+    // grass from road from floor. Use F for the zoomed-out whole-cell overview.
+    zoom_ = 1.0f;
+    const float mid = float(cellSize_) * 0.5f;
+    // Iso position of the cell-centre tile, at zoom 1.
+    const float cx = (mid - mid) * (kTileW * 0.5f);          // = 0
+    const float cy = (mid + mid) * (kTileW * 0.25f);         // centre row depth
+    // Put that iso point at the middle of the viewport.
+    panX_ = float(viewW_) * 0.5f - cx;
+    panY_ = float(viewH_) * 0.5f - cy;
 }
 
 void MapView::wheelEvent(QWheelEvent* e) {
@@ -538,19 +622,28 @@ void MapView::keyPressEvent(QKeyEvent* e) {
         fitToWindow();
         update();
         break;
-    case Qt::Key_1: { // jump to exact 1:1, keeping the view centre fixed.
-        // This is the step-3 measurement trigger: full-resolution tiles with
-        // real overdraw — the case step 2's fit-to-window could not reach.
+    case Qt::Key_Backslash: { // jump to exact 1:1, keeping the view centre fixed
         const float cx = float(viewW_) * 0.5f, cy = float(viewH_) * 0.5f;
         const float k = 1.0f / zoom_;
         panX_ = cx - (cx - panX_) * k;
         panY_ = cy - (cy - panY_) * k;
         zoom_ = 1.0f;
-        std::printf("[MapView] jumped to 1:1 — next draw is the real overdraw case\n");
-        std::fflush(stdout);
         update();
         break;
     }
+    case Qt::Key_BracketLeft:   // lower the visible ceiling one level
+        setMaxLevel(maxLevel_ - 1);
+        break;
+    case Qt::Key_BracketRight:  // raise it one level
+        setMaxLevel(maxLevel_ + 1);
+        break;
+    case Qt::Key_0: case Qt::Key_1: case Qt::Key_2: case Qt::Key_3:
+    case Qt::Key_4: case Qt::Key_5: case Qt::Key_6: case Qt::Key_7:
+        // Digit sets the visible ceiling directly to that level. (Key_1 also
+        // used to mean "zoom 1:1"; level selection is the more useful binding
+        // now that the map renders. Use F to reframe; wheel to zoom.)
+        setMaxLevel(e->key() - Qt::Key_0);
+        break;
     default:
         QOpenGLWidget::keyPressEvent(e);
         return;
@@ -565,7 +658,7 @@ void MapView::paintGL() {
 
     if (dirtyUpload_) uploadInstances();
     if (haveSprites_ && spritesDirty_) uploadSpriteAtlas();
-    if (needsFit_) { fitToWindow(); needsFit_ = false; }
+    if (needsFit_) { resetView1to1(); needsFit_ = false; }
 
     glUseProgram(prog_);
     glBindVertexArray(vao_);
@@ -585,6 +678,8 @@ void MapView::paintGL() {
     // (centering at load; drag changes it). fitToWindow() seeds both.
     glUniform1f(uScale_, zoom_);
     glUniform2f(uOrigin_, panX_, panY_);
+    glUniform1i(uMaxLevel_, maxLevel_);
+    glUniform1i(uLayerCount_, usableLayers_);
 
     const long nO = static_cast<long>(opaque_.size());
     const long nT = static_cast<long>(translucent_.size());

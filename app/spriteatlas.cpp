@@ -98,13 +98,30 @@ SpriteAtlas::buildLayers(const std::vector<std::string>& names) {
             const int eh = std::min(entry.h, img.height() - ey);
             if (ew <= 0 || eh <= 0) { out[oi].found = false; ++lastMissing_; continue; }
 
+            // Extract the sprite sub-rect as its own QImage.
+            QImage sprite = img.copy(ex, ey, ew, eh);
+
+            // Cap sprite size. The GL atlas is a texture ARRAY: every layer is
+            // sized to the largest sprite, so one 744x982 jumbo sprite would
+            // blow all ~4000 layers up to that size (11+ GB -> GL_INVALID_VALUE,
+            // black render). Downscale anything over the cap; standard PZ tiles
+            // (<=128x256) are unaffected, big trees lose resolution but render.
+            constexpr int kCap = 256;
+            if (sprite.width() > kCap || sprite.height() > kCap) {
+                sprite = sprite.scaled(std::min(sprite.width(), kCap),
+                                       std::min(sprite.height(), kCap),
+                                       Qt::KeepAspectRatio, Qt::SmoothTransformation)
+                             .convertToFormat(QImage::Format_RGBA8888);
+            }
+            const int sw = sprite.width(), sh = sprite.height();
+
             Layer L;
-            L.w = ew; L.h = eh; L.ox = entry.ox; L.oy = entry.oy;
-            L.rgba.resize(static_cast<size_t>(ew) * eh * 4);
-            for (int row = 0; row < eh; ++row) {
-                const uchar* src = img.constScanLine(ey + row) + size_t(ex) * 4;
-                std::copy(src, src + size_t(ew) * 4,
-                          L.rgba.data() + size_t(row) * ew * 4);
+            L.w = sw; L.h = sh; L.ox = entry.ox; L.oy = entry.oy;
+            L.rgba.resize(static_cast<size_t>(sw) * sh * 4);
+            for (int row = 0; row < sh; ++row) {
+                const uchar* src = sprite.constScanLine(row);
+                std::copy(src, src + size_t(sw) * 4,
+                          L.rgba.data() + size_t(row) * sw * 4);
             }
             L.found = true;
             out[oi] = std::move(L);

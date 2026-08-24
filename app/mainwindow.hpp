@@ -20,6 +20,7 @@ class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
 class QLabel;
+class QSpinBox;
 class QCloseEvent;
 class QStackedWidget;
 
@@ -45,6 +46,7 @@ private slots:
     void filterCells(const QString& text);
     void jumpToFirstMatch();
     void setTexturepacks();
+    void loadTexturepacks(const QString& dir, bool fromUser);
 
 private:
     void buildMenus();
@@ -77,6 +79,8 @@ private:
     QListWidget* cellList_ = nullptr;
     QLabel* placeholder_ = nullptr;   // shown before a map is open
     MapView* view_ = nullptr;         // GL viewport; central widget once created
+    QLabel* levelLabel_ = nullptr;
+    QSpinBox* levelSpin_ = nullptr;   // level selector (Model B)
 };
 
 } // namespace pzmm

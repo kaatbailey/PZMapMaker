@@ -65,7 +65,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 |---|---|---|---|
 | `[x]` | **C1** Architecture decision gate | — | **A written decision.** |
 | `[x]` | **C2** Working store and project format | C1 | **DONE 2026-08-22.** MapProject (enumerate, LRU, atomic save, edit→save→reopen no loss, 36 tests) + Qt6 MainWindow (open map, cell-list dock with search/Ctrl+G, load-on-click, Recent Maps, dirty marker, close guard). STATE §"C1 DONE + C2 UNDERWAY" and §"C2 polish". |
-| `[~]` | **C3** Interactive viewport | C1, C2 | **IN PROGRESS (nearly complete).** Steps 1–4b done: GL shell, census, two-pass draw, pan/zoom, and real PZ sprite art rendering (43_46 shows grass/road/foliage in correct iso position, ~0.4ms). Remaining: multi-level selector + polish, then C4 (picking/editing). |
+| `[~]` | **C3** Interactive viewport | C1, C2 | **FUNCTIONALLY COMPLETE (viewer).** Real PZ sprite art, pan/zoom, level selector (floor-peeling verified on KNOX BANK in 41_37), persistent texturepacks, readable 1:1 default. Known limit: 2048 texture-array-layer cap blanks some sprites on dense cells — interim clamp in place; proper fix = atlas packing. Then C4 (editing). |
 | `[!]` | **C4** Tool layer: brushes, selection, undo UI | C3, A3 | Blocked |
 | `[!]` | **C5** Shell: panels, tile picker, validation panel | C4, A4 | Blocked |
 
