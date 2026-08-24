@@ -3822,17 +3822,43 @@ Perf note: first frame after a cell load spikes (~390ms on 41_37) — the atlas
 upload (decode+scale ~4000 PNGs) blocks the render thread. One-time per cell;
 steady-state is 0.2-1.7ms. Fine for now; async upload later if it annoys.
 
+### C3 polish — pan fix + sprite projection corrected from PZ source (2026-08-23)
+
+PAN BUG (post-pan tiles vanishing):
+  After panning, nearly all tiles (floors, roads, walls) vanished; only
+  translucent-pass tiles (grass, trees) survived. Resize fixed it; F did not.
+  The surviving tiles were exactly the depth-test-OFF pass; the vanishing ones
+  were the depth-test-ON (opaque) pass — conclusive. The depth buffer on
+  QOpenGLWidget's FBO on this Wayland setup was not clearing/persisting
+  correctly between paints that didn't involve a resize. Fix: disable depth test
+  in both passes and rely on painter's order (opaque first, then translucent).
+  The two-pass structure + alpha-test discard handles layering correctly without
+  depth. Also added glViewport() at the top of every paintGL() — QOpenGLWidget
+  on Wayland did not reliably preserve the GL viewport between paint calls.
+
+SPRITE PROJECTION CORRECTED (fence stagger, slide in two pieces):
+  The iso transform was guessed, not sourced. Decompiled IsoUtils.java from the
+  B42 jar gave the exact PZ calculation:
+    XToScreen: sx = (x - y) * 32      -- was correct
+    YToScreen: sy = (x + y) * 16 - z * 96  -- z factor was wrong (had 48)
+  And IsoSprite.prepareToRenderSprite gave the anchor:
+    sprite top-left = (ax - 32 + ox, ay - 96 + oy)
+  where ox/oy are the pack entry offsets. The old anchor was "bottom-centre"
+  (invented, not sourced), which misplaced every tall sprite independently.
+  Both values are now exact from the decompiled source. Fences align; multi-tile
+  objects (slides, walls) connect correctly.
+  METHOD NOTE: PZMapCreation (the Java oracle) never implemented rendering, so
+  there was no oracle for sprite placement. The right source was the decompiled
+  PZ game binary directly (IsoUtils.class, IsoSprite.class from the B42 jar).
+  This is the correct approach for any future rendering questions.
+
 ### Status pointer — 2026-08-23 (live, not a handoff)
 Port: DONE. C1: DONE (corrected). C2: DONE.
-C3: FUNCTIONALLY COMPLETE as a viewer. Real PZ art, pan/zoom, level selector
-  (floor peeling verified on KNOX BANK), persistent texturepacks, readable
-  default. One known limitation: 2048-layer cap blanks some sprites on dense
-  cells (interim clamp in place; proper fix = atlas packing).
+C3: COMPLETE as a viewer. Real PZ art with correct sprite placement, pan/zoom,
+  level selector, persistent texturepacks, readable 1:1 default. One known
+  limitation: 2048-layer array cap blanks some sprites on dense cells (interim
+  clamp; proper fix = atlas packing).
 NEXT, choose:
-  (a) Atlas packing — remove the layer cap so dense cells render 100%. Pure
-      rendering-quality work, self-contained.
-  (b) C4 — picking/editing: click a tile, see its name/properties, change it.
-      Turns the viewer into an editor. The bigger, more consequential chunk.
-  (a) makes what exists flawless; (b) is the next real capability. Either is a
-  clean starting point.
+  (a) Atlas packing — remove the layer cap. Pure rendering-quality work.
+  (b) C4 — picking/editing: click a tile, see/change it. Turns viewer to editor.
 

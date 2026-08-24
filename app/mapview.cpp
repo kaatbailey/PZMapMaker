@@ -224,15 +224,19 @@ void main() {
     int zlev = int((iPacked >> 8) & 0xFFu) - 128;
     float tw = uTileSize;                   // 64 at 1:1
 
-    // Iso anchor: screen position of this tile's origin (before zoom/pan).
-    // Standard 2:1 iso; z lifts by ~half a tile height per level.
+    // PZ's exact IsoUtils transform (IsoUtils.java, verified from decompiled source):
+    //   XToScreen: sx = (x - y) * 32    (= tw * 0.5)
+    //   YToScreen: sy = (x + y) * 16 - z * 96   (tw*0.25, z*tw*1.5)
     float ax = (iWorld.x - iWorld.y) * (tw * 0.5);
-    float ay = (iWorld.x + iWorld.y) * (tw * 0.25) - float(zlev) * (tw * 0.75);
+    float ay = (iWorld.x + iWorld.y) * (tw * 0.25) - float(zlev) * (tw * 1.5);
 
-    // The sprite quad spans spW x spH, anchored so its BOTTOM-CENTRE sits at the
-    // tile anchor, shifted by the authored offset (ox,oy). corner.y=0 is bottom.
-    float lx = ax - spW * 0.5 + ox + aCorner.x * spW;
-    float ly = ay - spH      + oy + aCorner.y * spH;
+    // PZ places the sprite TOP-LEFT at (ax - 32 + ox, ay - 96 + oy).
+    // The -32/-96 is the offsetX/offsetY passed into IsoSprite.render for
+    // normal tiles (32*scale, 96*scale from RenderGhostTileColor). The ox/oy
+    // from the pack entry are additive corrections to that top-left anchor.
+    // (Not bottom-centre — that assumption was wrong and caused the fence stagger.)
+    float lx = ax - tw * 0.5 + ox + aCorner.x * spW;
+    float ly = ay - tw * 1.5 + oy + aCorner.y * spH;
 
     // Apply zoom about the origin, then translate by pan.
     float px = lx * uScale + uOrigin.x;
