@@ -1,6 +1,8 @@
 #include "mainwindow.hpp"
 
 #include "mapview.hpp"
+#include "tileindex.hpp"
+#include "tile.hpp"
 
 #include <QAction>
 #include <QCloseEvent>
@@ -21,6 +23,8 @@
 #include <QSettings>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QTextEdit>
+#include <filesystem>
 #include <QString>
 #include <QStringList>
 #include <QToolBar>
@@ -70,6 +74,34 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                 .arg(t.translucentMs, 0, 'f', 2)
                 .arg(t.totalMs(), 0, 'f', 2));
     });
+
+    // C4: clicking a tile shows its names and properties grouped by z-level.
+    connect(view_, &MapView::tileClicked, this,
+        [this](int tx, int ty, QVector<QPair<int,QString>> tiles) {
+            if (!tilePanel_) return;
+            QString text = QString("(%1, %2)\n").arg(tx).arg(ty);
+            if (tiles.isEmpty()) {
+                text += "\n(empty square)";
+            } else {
+                int lastZ = INT_MIN;
+                for (const auto& [z, qn] : tiles) {
+                    if (z != lastZ) {
+                        text += QString("\nz = %1\n").arg(z);
+                        lastZ = z;
+                    }
+                    text += "  " + qn + "\n";
+                    const pzformat::Tile* t = tiles_.get(qn.toStdString());
+                    if (!t || t->props.empty()) continue;
+                    for (const auto& [k, v] : t->props) {
+                        text += "    ";
+                        text += QString::fromStdString(k);
+                        if (!v.empty()) { text += " = "; text += QString::fromStdString(v); }
+                        text += "\n";
+                    }
+                }
+            }
+            tilePanel_->setPlainText(text);
+        });
 
     // Level selector (Model B): a spinbox in the status bar shows all tiles at
     // or below the chosen z. Two-way synced: keys ([ ] and digits) in the view
@@ -183,6 +215,17 @@ void MainWindow::buildDockPanels() {
 
     dock->setWidget(container);
     addDockWidget(Qt::LeftDockWidgetArea, dock);
+
+    // C4: Tile Info dock — shows tile names at the clicked square.
+    auto* tileDock = new QDockWidget("Tile Info", this);
+    tileDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea
+                              | Qt::BottomDockWidgetArea);
+    tilePanel_ = new QTextEdit(tileDock);
+    tilePanel_->setReadOnly(true);
+    tilePanel_->setFont(QFont("Monospace", 9));
+    tilePanel_->setPlaceholderText("Click a tile in the viewport to see its names here.");
+    tileDock->setWidget(tilePanel_);
+    addDockWidget(Qt::RightDockWidgetArea, tileDock);
 }
 
 void MainWindow::openMap() {
@@ -428,6 +471,22 @@ void MainWindow::loadTexturepacks(const QString& dir, bool fromUser) {
     try {
         const std::size_t n = atlas_.indexDir(dir.toStdString());
         QSettings().setValue("texturepacksDir", dir);   // persist for next launch
+        // Derive the media dir from the texturepacks path (one level up).
+        // B42 puts .tiles files directly in media/ (newtiledefinitions.tiles etc.).
+        // std::filesystem::path::parent_path() on a path with a trailing separator
+        // strips the separator and returns the same directory, so we must remove
+        // any trailing slash before calling it.
+        {
+            std::string tpStr = dir.toStdString();
+            while (!tpStr.empty() && (tpStr.back() == '/' || tpStr.back() == '\\'))
+                tpStr.pop_back();
+            const std::filesystem::path mediaPath =
+                std::filesystem::path(tpStr).parent_path();
+            tiles_ = pzformat::TileIndex::load(mediaPath);
+            std::printf("[MainWindow] TileIndex loaded: %zu tiles from %s\n",
+                        tiles_.size(), mediaPath.string().c_str());
+            std::fflush(stdout);
+        }
         setStatus(QString("Indexed %1 sprites from texturepacks").arg(n));
         // If a cell is already loaded, build its layers now.
         if (project_ && currentCell_) {

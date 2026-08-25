@@ -3862,3 +3862,76 @@ NEXT, choose:
   (a) Atlas packing — remove the layer cap. Pure rendering-quality work.
   (b) C4 — picking/editing: click a tile, see/change it. Turns viewer to editor.
 
+
+### C4 picking — click-to-identify DONE (2026-08-25)
+
+The read side of C4 is complete and verified. The write side (tile replacement,
+brushes, undo UI) is next and depends on A3.
+
+**What was built (app layer only, no library changes):**
+
+`MapView` — picking subsystem:
+- `screenToTile(cx, cy)` — inverse of the PZ iso transform (IsoUtils.java,
+  sourced from the decompiled B42 jar). At z=0 ground plane:
+    wx = (ax/32 + ay/16) / 2,  wy = (ay/16 - ax/32) / 2
+  where ax/ay = (screen - pan) / zoom. Returns cell-local (tx, ty) or (-1,-1)
+  outside the cell.
+- `squareTiles_` — flat CPU-side retention of every tile index per (x,y,z),
+  filled during `buildInstances`. Enables picking without retaining the
+  full CellData pointer.
+- `cellTileNames_` — mirrors `cell.header().tileNames` for name resolution.
+- `tileClicked(int tx, int ty, QVector<QPair<int,QString>> tiles)` signal —
+  emitted on left-click (not drag; 3px threshold). Carries (z, name) pairs
+  in painter's order, low z first.
+- `setMouseTracking(true)` in constructor — required for mouseMoveEvent to
+  fire without a button held. Missing this caused hover to only work during
+  drags.
+
+`MapView` — hover and selection overlays:
+- A second minimal GL program (`overlayProg_`, `overlayVao_`, `overlayVbo_`)
+  draws coloured `GL_LINE_LOOP` diamonds. Separate from the sprite shader;
+  4 pre-projected NDC vertices uploaded per frame via `glBufferSubData`.
+- `hoverTile_` — updated in `mouseMoveEvent` (every move, not just drags).
+  Cleared in `leaveEvent`. Yellow diamond.
+- `selectedTile_` — set on click, persists until next click. Cyan diamond,
+  drawn before hover so yellow sits on top when both occupy the same square.
+- `glLineWidth(2.0f)` is illegal in GL 4.5 core profile and was removed.
+  Line width stays at 1.
+
+`MainWindow`:
+- `TileIndex tiles_` — loaded from `$PZ/media` when texturepacks are
+  indexed. Path derived by stripping trailing slash from the texturepacks
+  dir and calling `parent_path()`. B42 puts `.tiles` files directly in
+  `media/` (no subdirectory); `TileIndex::load` scans for `*.tiles` there.
+  Confirmed: 61,418 tiles loaded on startup.
+- `tileClicked` lambda — formats the Tile Info dock: coordinate header, then
+  for each z-level a `z = N` header, indented tile name, and doubly-indented
+  properties (`key` or `key = value`).
+- Tile Info dock — `QTextEdit`, read-only, monospace 9pt, right dock area.
+
+**CONFIRMED (verified in the running app):**
+- `screenToTile` is accurate: clicking a tile whose name is visible in the
+  viewport returns the correct (tx, ty) and the Tile Info panel shows the
+  expected tile names and properties.
+- Hover diamond tracks the cursor continuously and disappears on leave.
+- Selection (cyan) persists across mouse moves; yellow hover sits on top.
+- z-level grouping is correct: a doorway square showed floor (z=0), interior
+  walls, door frame, door, then ceiling and roof (z=1) in the correct order.
+- Property display is correct: `blends_natural_01_38` showed `FloorMaterial
+  = Grass_Medium`, `grassFloor`, `solidfloor`, etc. matching known tile data.
+
+**OPEN (not bugs, deferred):**
+- `GL_INVALID_OPERATION` (0x0501) fires every frame during hover/selection
+  draw. Source is not yet identified — `glLineWidth` was the known cause and
+  was removed; a second call site may exist elsewhere in the overlay path, or
+  it may be a uniform or VAO state issue. Does not affect correctness; fix
+  before errors become noise that hides real problems.
+- `selectedTile_` is not cleared when a new cell is loaded. After loading a
+  different cell, the cyan diamond may appear at stale coordinates. Fix:
+  call `selectedTile_ = {-1,-1}` in `clearCell()` and at the top of
+  `setCell()`.
+
+**NEXT:** C4 write side — tile replacement through `CellEditor`. Depends on
+A3-pre1 and A3-pre2 (wall joining prerequisites) per CHUNKS.md, but a
+simpler first step is floor replacement (no wall-join logic needed) to
+prove the edit → dirty → save → reload loop works end-to-end in the UI.

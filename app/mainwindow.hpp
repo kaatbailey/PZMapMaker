@@ -19,6 +19,7 @@
 class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
+class QTextEdit;
 class QLabel;
 class QSpinBox;
 class QCloseEvent;
@@ -77,6 +78,7 @@ private:
     QStackedWidget* stack_ = nullptr; // placeholder (0) / viewport (1)
     QLineEdit* cellSearch_ = nullptr;
     QListWidget* cellList_ = nullptr;
+    QTextEdit*   tilePanel_ = nullptr;   // C4: tile info dock
     QLabel* placeholder_ = nullptr;   // shown before a map is open
     MapView* view_ = nullptr;         // GL viewport; central widget once created
     QLabel* levelLabel_ = nullptr;

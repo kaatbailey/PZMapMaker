@@ -7,6 +7,8 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QPoint>
+#include <QStringList>
 
 #include <algorithm>
 #include <cmath>
@@ -56,6 +58,10 @@ MapView::MapView(QWidget* parent) : QOpenGLWidget(parent) {
     fmt.setVersion(4, 5);
     fmt.setDepthBufferSize(24);
     setFormat(fmt);
+    // Without this Qt only delivers mouseMoveEvent while a button is held.
+    // setMouseTracking enables move events even with no button pressed,
+    // which is what drives the hover diamond.
+    setMouseTracking(true);
 }
 MapView::~MapView() = default;
 
@@ -84,6 +90,14 @@ void MapView::buildInstances(const pzformat::CellData& cell) {
     atlasLayers_ = static_cast<int>(names.size());
     if (atlasLayers_ < 1) atlasLayers_ = 1;
 
+    // C4: retain data for picking.
+    cellTileNames_ = names;
+    cellMinZ_      = cell.minLevel();
+    squareDim_     = cell.cellSize();
+    const int nz   = cell.maxLevel() - cell.minLevel() + 1;
+    squareTiles_.assign(static_cast<size_t>(nz * squareDim_ * squareDim_),
+                        std::vector<std::int32_t>{});
+
     const int n = cell.cellSize();
     // Reserve roughly: census already ran, so use its counts if present.
     opaque_.reserve(static_cast<size_t>(census_.instances / 2 + 1));
@@ -94,6 +108,12 @@ void MapView::buildInstances(const pzformat::CellData& cell) {
             for (int y = 0; y < n; ++y) {
                 const auto tiles = cell.tilesAt(x, y, z);
                 if (tiles.empty()) continue;
+                // C4: store tile list for this square for picking.
+                {
+                    const int slot = (z - cell.minLevel()) * squareDim_ * squareDim_
+                                   + x * squareDim_ + y;
+                    squareTiles_[static_cast<size_t>(slot)] = std::vector<std::int32_t>(tiles.begin(), tiles.end());
+                }
                 for (std::int32_t ti : tiles) {
                     if (ti < 0 || ti >= static_cast<std::int32_t>(names.size()))
                         continue;
@@ -596,6 +616,43 @@ void MapView::resetView1to1() {
     panY_ = float(viewH_) * 0.5f - cy;
 }
 
+QPoint MapView::screenToTile(float cx, float cy) const {
+    // Inverse of the PZ iso transform (IsoUtils.java, verified from source):
+    //   ax = (wx - wy) * 32   =>  wx = (ax/32 + ay/16) / 2
+    //   ay = (wx + wy) * 16         wy = (ay/16 - ax/32) / 2
+    // where (ax,ay) is the tile anchor point in iso-space at z=0.
+    //
+    // The tile anchor in screen space is:
+    //   screen = anchor * zoom + pan
+    // so: anchor = (screen - pan) / zoom
+    //
+    // This picks the ground-plane tile (z=0) under the cursor. Because iso tiles
+    // are diamonds, clicking the diamond's interior is fine; the math is exact.
+    if (!haveCell_) return {-1, -1};
+
+    const float ax = (cx - panX_) / zoom_;
+    const float ay = (cy - panY_) / zoom_;
+
+    // The tile anchor sits at the top vertex of the iso diamond (not the centre).
+    // In the vertex shader the anchor is the sprite top-left, adjusted by ox/oy.
+    // For a typical floor (fx=64, fy=128): lx = ax - 32, ly = ay - 96.
+    // To invert to wx/wy we need the raw iso anchor before those offsets.
+    // The formula below works correctly because we need the TILE position, not
+    // the sprite-quad corner: the iso transform maps tile (wx,wy) to anchor
+    // (wx-wy)*32, (wx+wy)*16 at z=0. Inverting:
+    const float isoX = ax / 32.0f;   // = wx - wy
+    const float isoY = ay / 16.0f;   // = wx + wy  (z=0)
+    const float wxf = (isoX + isoY) * 0.5f;
+    const float wyf = (isoY - isoX) * 0.5f;
+
+    const int tx = static_cast<int>(std::floor(wxf));
+    const int ty = static_cast<int>(std::floor(wyf));
+
+    if (tx < 0 || ty < 0 || tx >= squareDim_ || ty >= squareDim_)
+        return {-1, -1};
+    return {tx, ty};
+}
+
 void MapView::wheelEvent(QWheelEvent* e) {
     // Zoom anchored at the cursor: the world point under the pointer stays put.
     // screen = worldIso*zoom + pan. Hold screen fixed at the cursor while zoom
@@ -617,23 +674,70 @@ void MapView::mousePressEvent(QMouseEvent* e) {
         dragging_ = true;
         lastMouseX_ = int(e->position().x());
         lastMouseY_ = int(e->position().y());
+        pressX_     = lastMouseX_;  // C4: remember press position for drag-vs-click
+        pressY_     = lastMouseY_;
         e->accept();
     }
 }
 
 void MapView::mouseMoveEvent(QMouseEvent* e) {
+    const int mx = int(e->position().x());
+    const int my = int(e->position().y());
     if (dragging_) {
-        panX_ += float(int(e->position().x()) - lastMouseX_);
-        panY_ += float(int(e->position().y()) - lastMouseY_);
-        lastMouseX_ = int(e->position().x());
-        lastMouseY_ = int(e->position().y());
+        panX_ += float(mx - lastMouseX_);
+        panY_ += float(my - lastMouseY_);
+        lastMouseX_ = mx;
+        lastMouseY_ = my;
         update();
         e->accept();
     }
+    // C4 hover: update the highlighted tile whether or not we are dragging.
+    const QPoint newHover = haveCell_ ? screenToTile(float(mx), float(my))
+                                      : QPoint{-1, -1};
+    if (newHover != hoverTile_) {
+        hoverTile_ = newHover;
+        update();   // repaint to move the diamond
+    }
+    e->accept();
+}
+
+void MapView::leaveEvent(QEvent* e) {
+    if (hoverTile_.x() >= 0) {
+        hoverTile_ = {-1, -1};
+        update();
+    }
+    QOpenGLWidget::leaveEvent(e);
 }
 
 void MapView::mouseReleaseEvent(QMouseEvent* e) {
-    if (e->button() == Qt::LeftButton) { dragging_ = false; e->accept(); }
+    if (e->button() == Qt::LeftButton) {
+        dragging_ = false;
+        // C4: if the mouse moved <= 3px it was a click, not a drag.
+        const int rx = int(e->position().x());
+        const int ry = int(e->position().y());
+        const int dx = rx - pressX_, dy = ry - pressY_;
+        if (haveCell_ && dx*dx + dy*dy <= 9) {
+            const QPoint tile = screenToTile(float(rx), float(ry));
+            if (tile.x() >= 0) {
+                QVector<QPair<int,QString>> tiles;
+                const int nz = census_.maxLevel - census_.minLevel + 1;
+                for (int zi = 0; zi < nz; ++zi) {
+                    const int z = census_.minLevel + zi;
+                    if (z > maxLevel_) continue;
+                    const int slot = zi * squareDim_ * squareDim_
+                                   + tile.x() * squareDim_ + tile.y();
+                    for (std::int32_t ti : squareTiles_[static_cast<size_t>(slot)]) {
+                        if (ti >= 0 && ti < static_cast<int>(cellTileNames_.size()))
+                            tiles.append({z, QString::fromStdString(
+                                cellTileNames_[static_cast<size_t>(ti)])});
+                    }
+                }
+                selectedTile_ = tile;
+                emit tileClicked(tile.x(), tile.y(), tiles);
+            }
+        }
+        e->accept();
+    }
 }
 
 void MapView::keyPressEvent(QKeyEvent* e) {
@@ -669,6 +773,104 @@ void MapView::keyPressEvent(QKeyEvent* e) {
         return;
     }
     e->accept();
+}
+
+void MapView::ensureOverlayProgram() {
+    if (overlayProg_) return;
+
+    // Minimal overlay shader: receives 4 pre-projected NDC vertices (uploaded
+    // per-frame) and draws them as a LINE_LOOP diamond. No instancing, no atlas.
+    const char* vs = R"(#version 450 core
+layout(location=0) in vec2 aPos;   // NDC position, pre-computed on CPU
+void main() { gl_Position = vec4(aPos, 0.5, 1.0); }
+)";
+    const char* fs = R"(#version 450 core
+uniform vec4 uColor;
+out vec4 fragColor;
+void main() { fragColor = uColor; }
+)";
+    auto compile = [&](GLenum type, const char* src) -> GLuint {
+        GLuint s = glCreateShader(type);
+        glShaderSource(s, 1, &src, nullptr);
+        glCompileShader(s);
+        GLint ok = 0; glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+        if (!ok) { char log[1024]; glGetShaderInfoLog(s, 1024, nullptr, log);
+                   std::fprintf(stderr, "[MapView overlay] shader: %s\n", log); }
+        return s;
+    };
+    GLuint v = compile(GL_VERTEX_SHADER, vs);
+    GLuint f = compile(GL_FRAGMENT_SHADER, fs);
+    overlayProg_ = glCreateProgram();
+    glAttachShader(overlayProg_, v); glAttachShader(overlayProg_, f);
+    glLinkProgram(overlayProg_);
+    GLint ok = 0; glGetProgramiv(overlayProg_, GL_LINK_STATUS, &ok);
+    if (!ok) { char log[1024]; glGetProgramInfoLog(overlayProg_, 1024, nullptr, log);
+               std::fprintf(stderr, "[MapView overlay] link: %s\n", log); }
+    glDeleteShader(v); glDeleteShader(f);
+
+    uoColor_   = glGetUniformLocation(overlayProg_, "uColor");
+    uoSurface_ = glGetUniformLocation(overlayProg_, "uSurface");
+
+    glGenVertexArrays(1, &overlayVao_);
+    glBindVertexArray(overlayVao_);
+    glGenBuffers(1, &overlayVbo_);
+    glBindBuffer(GL_ARRAY_BUFFER, overlayVbo_);
+    glBufferData(GL_ARRAY_BUFFER, 4 * 2 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glBindVertexArray(0);
+}
+
+void MapView::drawHoverOverlay() {
+    if (!haveCell_) return;
+    const bool haveSel   = selectedTile_.x() >= 0;
+    const bool haveHover = hoverTile_.x() >= 0;
+    if (!haveSel && !haveHover) return;
+
+    ensureOverlayProgram();
+
+    // Convert tile (wx,wy) to the four NDC diamond corners at z=0.
+    // Forward: ax=(wx-wy)*32, ay=(wx+wy)*16; screen=iso*zoom+pan; NDC as usual.
+    auto diamondNDC = [&](float wx, float wy, float out[8]) {
+        auto toNDC = [&](float tx, float ty, float& nx, float& ny) {
+            const float ax = (tx - ty) * 32.0f;
+            const float ay = (tx + ty) * 16.0f;
+            nx =  (ax * zoom_ + panX_) / float(viewW_) * 2.0f - 1.0f;
+            ny = -((ay * zoom_ + panY_) / float(viewH_) * 2.0f - 1.0f);
+        };
+        toNDC(wx,      wy,      out[0], out[1]);   // top
+        toNDC(wx+1.f,  wy,      out[2], out[3]);   // right
+        toNDC(wx+1.f,  wy+1.f, out[4], out[5]);   // bottom
+        toNDC(wx,      wy+1.f, out[6], out[7]);   // left
+    };
+
+    glUseProgram(overlayProg_);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBindVertexArray(overlayVao_);
+
+    float verts[8];
+
+    // Pass 1: selected tile — cyan outline, drawn first so hover yellow is on top.
+    if (haveSel) {
+        diamondNDC(float(selectedTile_.x()), float(selectedTile_.y()), verts);
+        glBindBuffer(GL_ARRAY_BUFFER, overlayVbo_);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+        glUniform4f(uoColor_, 0.2f, 0.9f, 1.0f, 0.85f);  // cyan
+        glDrawArrays(GL_LINE_LOOP, 0, 4);
+    }
+
+    // Pass 2: hover tile — yellow, drawn on top.
+    if (haveHover) {
+        diamondNDC(float(hoverTile_.x()), float(hoverTile_.y()), verts);
+        glBindBuffer(GL_ARRAY_BUFFER, overlayVbo_);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+        glUniform4f(uoColor_, 1.0f, 0.85f, 0.0f, 0.9f);  // yellow
+        glDrawArrays(GL_LINE_LOOP, 0, 4);
+    }
+
+    glBindVertexArray(0);
 }
 
 void MapView::paintGL() {
@@ -718,6 +920,9 @@ void MapView::paintGL() {
 
     std::printf("[MapView draw] opaque %ld inst %.3fms | translucent %ld inst %.3fms | total %.3fms\n",
                 nO, timing_.opaqueMs, nT, timing_.translucentMs, timing_.totalMs());
+
+    // Hover diamond overlay — drawn after sprites, no depth test.
+    drawHoverOverlay();
 
     // Keep a cheap error check; the heavy readback instrumentation is removed
     // now that the QOpenGLWidget present path is confirmed working.
