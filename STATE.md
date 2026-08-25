@@ -4011,3 +4011,36 @@ rebuilds, never shuffles. Constraints worked out this session:
 **NEXT:** either (a) build the tool palette + palette-preload atlas so painting
 is a first-class action with a picker, or (b) wire more CellEditor ops (walls,
 objects, undo) to the UI. (a) is the higher-value path toward a usable editor.
+
+### Design note — tile footprint preview (2026-08-25)
+
+**Idea (owner):** when a tile name is loaded in the Set Floor edit box, the
+viewport's cyan selection diamond should expand to show the actual footprint
+of that sprite BEFORE the user clicks Set Floor. If the tile is a 2×2 block
+sprite, the outline covers 4 squares. This warns the user they are about to
+overpaint more than the single square they designated.
+
+**Why this matters:** confirmed this session that some floor sprites are
+multi-tile (e.g. `floors_interior_tilesandwood_01_54` covers a 2×2 area).
+Painting one square with such a tile visually changes 4 squares — the data
+is correct (one square changed) but the art spills over. Without a footprint
+preview, the user has no way to know the tile they are about to place will
+cover more than the selected square.
+
+**How to implement:** the metadata is already available.
+`SpriteAtlas::Layer` carries `fx, fy` (logical tile size). A single-tile
+floor is `fx=64, fy=128`. Tile span = `fx/64` wide × `fy/128` deep. To get
+this without a full PNG decode: `atlas_.buildLayers({name})` on a single name
+is fast (just metadata lookup for the entry dimensions) — or better, add a
+`SpriteAtlas::queryMeta(name) -> Layer` that reads the pack entry dimensions
+without decoding pixels (pack entries carry w/h/ox/oy/fx/fy already in the
+entry table; no decode needed).
+
+**Viewport change:** `drawHoverOverlay` currently draws a fixed single-tile
+diamond. Change it to accept a footprint size `(tw, td)` (tiles wide, tiles
+deep) and draw a parallelogram covering `tw × td` tile positions starting
+from the hovered/selected square. For `tw=td=1` this is the existing diamond.
+
+**When to implement:** this is the first item in the palette/tool chunk. It
+should ship alongside the tile picker so the footprint preview works for
+palette selections, not just typed names. Logging here so it is not forgotten.
