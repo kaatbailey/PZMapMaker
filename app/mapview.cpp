@@ -788,6 +788,9 @@ void MapView::mouseMoveEvent(QMouseEvent* e) {
             const QPoint tile = screenToTile(float(mx), float(my));
             if (tile.x() >= 0 && tile != lastPainted_) {
                 lastPainted_ = tile;
+                std::printf("[paint-drag] tile=(%d,%d) hover=(%d,%d)\n",
+                            tile.x(), tile.y(), hoverTile_.x(), hoverTile_.y());
+                std::fflush(stdout);
                 emit paintTile(tile.x(), tile.y());
             }
         }
@@ -831,8 +834,17 @@ void MapView::mouseReleaseEvent(QMouseEvent* e) {
             if (tile.x() >= 0) {
                 if (hasBrush() && !altHeld_) {
                     // Paint mode: place the brush tile at the clicked square.
+                    // Multi-tile sprites (e.g. 4x4 floors) render their art up-
+                    // and-right (NE, +x/+y) of the anchor tile, so the picture
+                    // lands offset from the green box. Shift the anchor down-left
+                    // by the footprint's extent so the art lands under the box.
+                    const int ax = tile.x() + (brushW_ - 1);
+                    const int ay = tile.y() + (brushD_ - 1);
                     lastPainted_ = tile;
-                    emit paintTile(tile.x(), tile.y());
+                    std::printf("[paint] box tile=(%d,%d) -> anchor=(%d,%d) brush=%dx%d\n",
+                                tile.x(), tile.y(), ax, ay, brushW_, brushD_);
+                    std::fflush(stdout);
+                    emit paintTile(ax, ay);
                 } else {
                     // Inspect mode: emit tileClicked with the full z stack.
                     QVector<QPair<int,QString>> tiles;

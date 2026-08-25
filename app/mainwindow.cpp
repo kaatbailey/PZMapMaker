@@ -136,6 +136,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         const std::string name = qname.toStdString();
         if (!tiles_.get(name)) return;   // unknown tile — silently skip
         const int z = levelSpin_ ? levelSpin_->value() : 0;
+        std::printf("[setFloor] writing '%s' at (%d,%d) z=%d\n",
+                    name.c_str(), tx, ty, z);
+        std::fflush(stdout);
         try {
             pzformat::LoadedCell& lc = project_->load(*currentCell_);
             const std::size_t namesBefore = lc.data->header().tileNames.size();
