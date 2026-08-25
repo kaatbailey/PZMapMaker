@@ -135,4 +135,20 @@ SpriteAtlas::buildLayers(const std::vector<std::string>& names) {
     return out;
 }
 
+SpriteAtlas::Layer SpriteAtlas::queryMeta(const std::string& name) const {
+    Layer L;
+    auto it = loc_.find(name);
+    if (it == loc_.end()) return L; // found=false
+    const Loc& lc = it->second;
+    try {
+        const pzformat::PackFile pf = pzformat::PackFile::read(lc.pack);
+        const auto& entry = pf.pages()[lc.page].entries[lc.entry];
+        L.fx = entry.fx; L.fy = entry.fy;
+        L.ox = entry.ox; L.oy = entry.oy;
+        L.w  = entry.w;  L.h  = entry.h;
+        L.found = true;
+    } catch (...) {}
+    return L;
+}
+
 } // namespace pzmm

@@ -62,6 +62,10 @@ MapView::MapView(QWidget* parent) : QOpenGLWidget(parent) {
     // setMouseTracking enables move events even with no button pressed,
     // which is what drives the hover diamond.
     setMouseTracking(true);
+    // Qt's default context-menu policy intercepts right-click and routes it to
+    // contextMenuEvent instead of mousePressEvent. We handle right-click ourselves
+    // (brush pickup), so disable that interception entirely.
+    setContextMenuPolicy(Qt::NoContextMenu);
 }
 MapView::~MapView() = default;
 
@@ -201,6 +205,27 @@ void MapView::clearCell() {
     haveCell_ = false;
     dirtyUpload_ = true;
     if (isValid()) update();
+}
+
+void MapView::setBrush(const QString& tileName, const SpriteAtlas* atlas) {
+    brushName_ = tileName;
+    brushW_ = 1; brushD_ = 1;  // safe defaults
+    if (atlas && !tileName.isEmpty()) {
+        const SpriteAtlas::Layer L = atlas->queryMeta(tileName.toStdString());
+        if (L.found && L.fx > 0 && L.fy > 0) {
+            brushW_ = std::max(1, L.fx / 64);
+            brushD_ = std::max(1, L.fy / 128);
+        }
+    }
+    lastPainted_ = {-1, -1};
+    update();
+}
+
+void MapView::clearBrush() {
+    brushName_.clear();
+    brushW_ = 1; brushD_ = 1;
+    lastPainted_ = {-1, -1};
+    update();
 }
 
 void MapView::setSprites(std::vector<SpriteAtlas::Layer> layers) {
@@ -683,12 +708,65 @@ void MapView::wheelEvent(QWheelEvent* e) {
 }
 
 void MapView::mousePressEvent(QMouseEvent* e) {
+    const int mx = int(e->position().x());
+    const int my = int(e->position().y());
+    std::printf("[press] button=%d at (%d,%d)\n", int(e->button()), mx, my);
+    std::fflush(stdout);
+
+    if (e->button() == Qt::MiddleButton) {
+        // Middle-drag: always pan, regardless of brush state.
+        midDragging_ = true;
+        lastMouseX_ = mx;
+        lastMouseY_ = my;
+        e->accept();
+        return;
+    }
+
+    if (e->button() == Qt::RightButton) {
+        // Right-click: pick up the floor tile under the cursor as the stamp brush.
+        std::printf("[pickup] right-click received at (%d,%d) haveCell=%d\n",
+                    mx, my, haveCell_ ? 1 : 0);
+        std::fflush(stdout);
+        if (!haveCell_) { e->accept(); return; }
+        const QPoint tile = screenToTile(float(mx), float(my));
+        std::printf("[pickup] screenToTile -> (%d,%d)\n", tile.x(), tile.y());
+        std::fflush(stdout);
+        if (tile.x() < 0) { e->accept(); return; }
+        // Walk z levels from minLevel upward, take the first non-empty square.
+        // z_slot=0 is minLevel (may be basement), not necessarily the ground floor.
+        const int nz = census_.maxLevel - census_.minLevel + 1;
+        bool picked = false;
+        for (int zi = 0; zi < nz && !picked; ++zi) {
+            const int slot = zi * squareDim_ * squareDim_
+                           + tile.x() * squareDim_ + tile.y();
+            std::printf("[pickup] zi=%d slot=%d tiles=%zu\n",
+                        zi, slot, squareTiles_[static_cast<size_t>(slot)].size());
+            std::fflush(stdout);
+            for (std::int32_t ti : squareTiles_[static_cast<size_t>(slot)]) {
+                if (ti >= 0 && ti < static_cast<int>(cellTileNames_.size())) {
+                    const QString name = QString::fromStdString(
+                        cellTileNames_[static_cast<size_t>(ti)]);
+                    const int z = census_.minLevel + zi;
+                    std::printf("[pickup] emitting floorPickedUp('%s') z=%d\n",
+                                name.toStdString().c_str(), z);
+                    std::fflush(stdout);
+                    emit floorPickedUp(name, z);
+                    picked = true;
+                    break;
+                }
+            }
+        }
+        e->accept();
+        return;
+    }
+
     if (e->button() == Qt::LeftButton) {
         dragging_ = true;
-        lastMouseX_ = int(e->position().x());
-        lastMouseY_ = int(e->position().y());
-        pressX_     = lastMouseX_;  // C4: remember press position for drag-vs-click
-        pressY_     = lastMouseY_;
+        lastMouseX_ = mx;
+        lastMouseY_ = my;
+        pressX_     = mx;  // remember press for drag-vs-click detection
+        pressY_     = my;
+        lastPainted_ = {-1, -1};  // reset stroke tracking on new press
         e->accept();
     }
 }
@@ -696,20 +774,33 @@ void MapView::mousePressEvent(QMouseEvent* e) {
 void MapView::mouseMoveEvent(QMouseEvent* e) {
     const int mx = int(e->position().x());
     const int my = int(e->position().y());
-    if (dragging_) {
+
+    // Pan: middle-drag OR Alt+left-drag (works in any brush mode).
+    const bool doPan = midDragging_ || (dragging_ && altHeld_);
+    if (doPan) {
         panX_ += float(mx - lastMouseX_);
         panY_ += float(my - lastMouseY_);
-        lastMouseX_ = mx;
-        lastMouseY_ = my;
         update();
-        e->accept();
+    } else if (dragging_ && hasBrush() && haveCell_) {
+        // Paint stroke: emit paintTile for each new square entered.
+        const int dx = mx - pressX_, dy = my - pressY_;
+        if (dx*dx + dy*dy > 9) {  // past the 3px click threshold -> stroke
+            const QPoint tile = screenToTile(float(mx), float(my));
+            if (tile.x() >= 0 && tile != lastPainted_) {
+                lastPainted_ = tile;
+                emit paintTile(tile.x(), tile.y());
+            }
+        }
     }
-    // C4 hover: update the highlighted tile whether or not we are dragging.
+    lastMouseX_ = mx;
+    lastMouseY_ = my;
+
+    // Hover: update the highlighted tile whether or not we are dragging.
     const QPoint newHover = haveCell_ ? screenToTile(float(mx), float(my))
                                       : QPoint{-1, -1};
     if (newHover != hoverTile_) {
         hoverTile_ = newHover;
-        update();   // repaint to move the diamond
+        update();   // repaint to move the diamond / footprint outline
     }
     e->accept();
 }
@@ -723,38 +814,60 @@ void MapView::leaveEvent(QEvent* e) {
 }
 
 void MapView::mouseReleaseEvent(QMouseEvent* e) {
+    if (e->button() == Qt::MiddleButton) {
+        midDragging_ = false;
+        e->accept();
+        return;
+    }
     if (e->button() == Qt::LeftButton) {
         dragging_ = false;
-        // C4: if the mouse moved <= 3px it was a click, not a drag.
         const int rx = int(e->position().x());
         const int ry = int(e->position().y());
         const int dx = rx - pressX_, dy = ry - pressY_;
-        if (haveCell_ && dx*dx + dy*dy <= 9) {
+        const bool wasClick = (dx*dx + dy*dy <= 9);
+
+        if (haveCell_ && wasClick) {
             const QPoint tile = screenToTile(float(rx), float(ry));
             if (tile.x() >= 0) {
-                QVector<QPair<int,QString>> tiles;
-                const int nz = census_.maxLevel - census_.minLevel + 1;
-                for (int zi = 0; zi < nz; ++zi) {
-                    const int z = census_.minLevel + zi;
-                    if (z > maxLevel_) continue;
-                    const int slot = zi * squareDim_ * squareDim_
-                                   + tile.x() * squareDim_ + tile.y();
-                    for (std::int32_t ti : squareTiles_[static_cast<size_t>(slot)]) {
-                        if (ti >= 0 && ti < static_cast<int>(cellTileNames_.size()))
-                            tiles.append({z, QString::fromStdString(
-                                cellTileNames_[static_cast<size_t>(ti)])});
+                if (hasBrush() && !altHeld_) {
+                    // Paint mode: place the brush tile at the clicked square.
+                    lastPainted_ = tile;
+                    emit paintTile(tile.x(), tile.y());
+                } else {
+                    // Inspect mode: emit tileClicked with the full z stack.
+                    QVector<QPair<int,QString>> tiles;
+                    const int nz = census_.maxLevel - census_.minLevel + 1;
+                    for (int zi = 0; zi < nz; ++zi) {
+                        const int z = census_.minLevel + zi;
+                        if (z > maxLevel_) continue;
+                        const int slot = zi * squareDim_ * squareDim_
+                                       + tile.x() * squareDim_ + tile.y();
+                        for (std::int32_t ti : squareTiles_[static_cast<size_t>(slot)]) {
+                            if (ti >= 0 && ti < static_cast<int>(cellTileNames_.size()))
+                                tiles.append({z, QString::fromStdString(
+                                    cellTileNames_[static_cast<size_t>(ti)])});
+                        }
                     }
+                    selectedTile_ = tile;
+                    emit tileClicked(tile.x(), tile.y(), tiles);
                 }
-                selectedTile_ = tile;
-                emit tileClicked(tile.x(), tile.y(), tiles);
             }
         }
+        lastPainted_ = {-1, -1};
         e->accept();
     }
 }
 
 void MapView::keyPressEvent(QKeyEvent* e) {
+    // Track Alt for Alt+left-drag pan. Qt delivers modifier keys as key events
+    // as well as through modifiers(); tracking here keeps the flag correct even
+    // when the modifier fires before a mouse button.
+    if (e->key() == Qt::Key_Alt) { altHeld_ = true; }
+
     switch (e->key()) {
+    case Qt::Key_Escape:   // clear stamp brush, return to inspect mode
+        clearBrush();
+        break;
     case Qt::Key_F:   // re-frame the whole cell
         fitToWindow();
         update();
@@ -786,6 +899,11 @@ void MapView::keyPressEvent(QKeyEvent* e) {
         return;
     }
     e->accept();
+}
+
+void MapView::keyReleaseEvent(QKeyEvent* e) {
+    if (e->key() == Qt::Key_Alt) { altHeld_ = false; }
+    QOpenGLWidget::keyReleaseEvent(e);
 }
 
 void MapView::ensureOverlayProgram() {
@@ -842,19 +960,22 @@ void MapView::drawHoverOverlay() {
 
     ensureOverlayProgram();
 
-    // Convert tile (wx,wy) to the four NDC diamond corners at z=0.
-    // Forward: ax=(wx-wy)*32, ay=(wx+wy)*16; screen=iso*zoom+pan; NDC as usual.
-    auto diamondNDC = [&](float wx, float wy, float out[8]) {
+    // Convert the four corners of a (tw × td)-tile block starting at (wx,wy)
+    // to NDC for a LINE_LOOP quad. For 1×1 this is the usual diamond; for a
+    // multi-tile footprint the parallelogram expands to cover the extent.
+    // Forward iso: ax=(x-y)*32, ay=(x+y)*16.
+    auto footprintNDC = [&](float wx, float wy, int tw, int td, float out[8]) {
         auto toNDC = [&](float tx, float ty, float& nx, float& ny) {
             const float ax = (tx - ty) * 32.0f;
             const float ay = (tx + ty) * 16.0f;
             nx =  (ax * zoom_ + panX_) / float(viewW_) * 2.0f - 1.0f;
             ny = -((ay * zoom_ + panY_) / float(viewH_) * 2.0f - 1.0f);
         };
-        toNDC(wx,      wy,      out[0], out[1]);   // top
-        toNDC(wx+1.f,  wy,      out[2], out[3]);   // right
-        toNDC(wx+1.f,  wy+1.f, out[4], out[5]);   // bottom
-        toNDC(wx,      wy+1.f, out[6], out[7]);   // left
+        const float w = float(tw), d = float(td);
+        toNDC(wx,   wy,   out[0], out[1]);   // NW corner (top)
+        toNDC(wx+w, wy,   out[2], out[3]);   // NE corner (right)
+        toNDC(wx+w, wy+d, out[4], out[5]);   // SE corner (bottom)
+        toNDC(wx,   wy+d, out[6], out[7]);   // SW corner (left)
     };
 
     glUseProgram(overlayProg_);
@@ -864,22 +985,29 @@ void MapView::drawHoverOverlay() {
     glBindVertexArray(overlayVao_);
 
     float verts[8];
+    const bool brushMode = hasBrush();
 
-    // Pass 1: selected tile — cyan outline, drawn first so hover yellow is on top.
-    if (haveSel) {
-        diamondNDC(float(selectedTile_.x()), float(selectedTile_.y()), verts);
+    // Pass 1: selection diamond — cyan in inspect mode. Hidden in brush mode
+    // (the green footprint hover is sufficient feedback while painting).
+    if (haveSel && !brushMode) {
+        footprintNDC(float(selectedTile_.x()), float(selectedTile_.y()), 1, 1, verts);
         glBindBuffer(GL_ARRAY_BUFFER, overlayVbo_);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
         glUniform4f(uoColor_, 0.2f, 0.9f, 1.0f, 0.85f);  // cyan
         glDrawArrays(GL_LINE_LOOP, 0, 4);
     }
 
-    // Pass 2: hover tile — yellow, drawn on top.
+    // Pass 2: hover — yellow (inspect) or green footprint (brush loaded).
     if (haveHover) {
-        diamondNDC(float(hoverTile_.x()), float(hoverTile_.y()), verts);
+        const int fw = brushMode ? brushW_ : 1;
+        const int fd = brushMode ? brushD_ : 1;
+        footprintNDC(float(hoverTile_.x()), float(hoverTile_.y()), fw, fd, verts);
         glBindBuffer(GL_ARRAY_BUFFER, overlayVbo_);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
-        glUniform4f(uoColor_, 1.0f, 0.85f, 0.0f, 0.9f);  // yellow
+        if (brushMode)
+            glUniform4f(uoColor_, 0.2f, 1.0f, 0.3f, 0.95f);  // green = brush ready
+        else
+            glUniform4f(uoColor_, 1.0f, 0.85f, 0.0f, 0.9f);  // yellow = inspect
         glDrawArrays(GL_LINE_LOOP, 0, 4);
     }
 

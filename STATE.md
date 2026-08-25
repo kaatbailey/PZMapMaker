@@ -4094,3 +4094,28 @@ it, while the brush stays loaded.
   `mousePressEvent` — same pan math as current left-drag, separate button check.
 
 **NOT yet built. Logged for the palette/tool chunk.**
+
+### C4 stamp brush + pan — DONE (2026-08-25)
+
+Items 1–4 of the stamp brush chunk are complete and verified.
+
+**Middle-drag pan (item 1).** `Qt::MiddleButton` in `mousePressEvent` sets `midDragging_`; `mouseMoveEvent` pans when `midDragging_` is true. Self-contained in `MapView`; no MainWindow change needed.
+
+**Alt+left-drag pan.** `altHeld_` tracked via `keyPressEvent`/`keyReleaseEvent`. Alt+drag pans instead of painting. KDE intercepts Alt+drag at the compositor level as a window-move gesture — confirmed not working on this setup. Kept in code for non-KDE use; Space or Ctrl alternatives not yet tried.
+
+**Brush state + right-click pickup (item 2).** Right-click in the viewport emits `floorPickedUp(name, z)`. `MainWindow` receives it, calls `view_->setBrush(name, atlas)` and syncs the level spinbox to the z where the tile was found. `setBrush` calls `atlas.queryMeta(name)` (metadata-only, no PNG decode) to compute `brushW_ = fx/64`, `brushD_ = fy/128` for footprint sizing.
+
+**Footprint preview (item 3).** `drawHoverOverlay` draws a green `brushW_ × brushD_` parallelogram in brush mode instead of the single yellow diamond. 1×1 for standard floors; expands for multi-tile sprites. Selection diamond hidden while brush is active.
+
+**Left-click/drag to paint (item 4).** In brush mode, left-click emits `paintTile(tx, ty)` on release. Left-drag emits `paintTile` for each new square entered past the 3px threshold. `MainWindow` calls `CellEditor::setFloor` at the spinbox z, marks dirty, refreshes viewport. Escape clears brush and returns to inspect mode.
+
+**Bugs found and fixed during this session:**
+
+- `mainwindow.cpp` connections (`floorPickedUp`, `paintTile`) were not in the binary when the patch was first applied — middle-drag worked (self-contained) but 2-7 silently did nothing. Fixed by delivering full files.
+- `Qt::DefaultContextMenu` policy would have intercepted right-click before `mousePressEvent`. Fixed with `setContextMenuPolicy(Qt::NoContextMenu)` in the `MapView` constructor.
+- Right-click pickup hardcoded `z_slot=0` (minLevel), but ground-floor tiles are at z=0 game coordinates which is `z_slot = 0 - minLevel`. For this cell (minLevel=-1) the grass was at z_slot=1, so slot 0 was always empty. Fixed by scanning all z_slots from minLevel upward.
+- Painting landed 3 squares up-right from the green outline because the level spinbox was at z=1 while pickup found the tile at z=0. Each extra z-level shifts the iso render by ~3 tile-widths visually. Fixed by emitting the found z in `floorPickedUp` and syncing the spinbox on pickup.
+
+**Files changed:** `app/mapview.hpp`, `app/mapview.cpp`, `app/spriteatlas.hpp`, `app/spriteatlas.cpp`, `app/mainwindow.cpp`.
+
+**CHUNKS update:** C4 stamp brush items 1–4 done. Item 5 (tile picker panel) is next within C4.

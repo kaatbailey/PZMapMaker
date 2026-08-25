@@ -51,6 +51,11 @@ public:
     // Pages are decoded lazily and cached for the duration of the call.
     std::vector<Layer> buildLayers(const std::vector<std::string>& names);
 
+    // Fast metadata-only lookup: returns fx/fy/ox/oy from the pack entry table
+    // without decoding any PNG pixels. found=false when the name has no entry.
+    // Used for footprint preview (brush width/depth) before any pixel upload.
+    Layer queryMeta(const std::string& name) const;
+
     // How many of the last buildLayers names had no sprite (diagnostic).
     int lastMissing() const noexcept { return lastMissing_; }
 

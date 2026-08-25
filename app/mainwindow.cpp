@@ -108,6 +108,51 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             tilePanel_->setPlainText(text);
         });
 
+    // Stamp brush: right-click on a tile picks up its floor as the active brush.
+    // MainWindow calls setBrush on the view (passing the atlas for metadata) and
+    // also updates the name box and status bar so the user sees what was picked.
+    connect(view_, &MapView::floorPickedUp, this, [this](const QString& tileName, int z) {
+        if (tileEditBox_) tileEditBox_->setText(tileName);
+        const SpriteAtlas* atlasPtr = atlas_.ready() ? &atlas_ : nullptr;
+        view_->setBrush(tileName, atlasPtr);
+        // Sync the level spinbox to where the tile actually lives so painting
+        // goes to the same z that was picked up, not whatever level was last set.
+        if (levelSpin_) {
+            QSignalBlocker block(levelSpin_);
+            levelSpin_->setValue(z);
+            QSettings().setValue("workingLevel", z);
+        }
+        if (view_) view_->setMaxLevel(z);
+        setStatus(QString("Brush: %1 (left-click/drag to paint, Esc to clear)").arg(tileName));
+    });
+
+    // Stamp brush: left-click/drag in paint mode emits paintTile per square.
+    // We apply setFloor at the working level and refresh the viewport.
+    connect(view_, &MapView::paintTile, this, [this](int tx, int ty) {
+        if (!project_ || !currentCell_) return;
+        if (!tileEditBox_) return;
+        const QString qname = tileEditBox_->text().trimmed();
+        if (qname.isEmpty()) return;
+        const std::string name = qname.toStdString();
+        if (!tiles_.get(name)) return;   // unknown tile — silently skip
+        const int z = levelSpin_ ? levelSpin_->value() : 0;
+        try {
+            pzformat::LoadedCell& lc = project_->load(*currentCell_);
+            const std::size_t namesBefore = lc.data->header().tileNames.size();
+            lc.editor->setFloor(tx, ty, z, name);
+            project_->markDirty(*currentCell_);
+            const std::size_t namesAfter = lc.data->header().tileNames.size();
+            if (atlas_.ready() && namesAfter != namesBefore) {
+                const auto& names = lc.data->header().tileNames;
+                std::vector<std::string> want(names.begin(), names.end());
+                view_->setSprites(atlas_.buildLayers(want));
+            }
+            view_->refreshCell(*lc.data);
+        } catch (const std::exception& e) {
+            setStatus(QString("paint failed: %1").arg(e.what()));
+        }
+    });
+
     // Level selector (Model B): a spinbox in the status bar shows all tiles at
     // or below the chosen z. Two-way synced: keys ([ ] and digits) in the view
     // update the box, and the box updates the view.

@@ -100,6 +100,13 @@ public:
     const CellCensus& lastCensus() const noexcept { return census_; }
     const PassTiming& lastTiming() const noexcept { return timing_; }
 
+    // Stamp brush: load a tile name as the active brush (footprint preview
+    // + left-click/drag to paint). Empty string clears the brush.
+    void setBrush(const QString& tileName, const SpriteAtlas* atlas = nullptr);
+    void clearBrush();
+    // True when a brush is loaded.
+    bool hasBrush() const noexcept { return !brushName_.isEmpty(); }
+
 signals:
     void censusReady(const CellCensus& c);
     void timingReady(const PassTiming& t);
@@ -109,6 +116,13 @@ signals:
     // stacked at that square for z <= maxLevel_.
     // Each entry is (z_level, tile_name), in painter's order (low z first).
     void tileClicked(int tx, int ty, QVector<QPair<int,QString>> tiles);
+    // Emitted when the user right-clicks a tile that has a floor — the floor
+    // tile name is picked up as the active stamp brush. z is the game-coordinate
+    // level the tile was found at, so the spinbox can be synced to paint there.
+    void floorPickedUp(const QString& tileName, int z);
+    // Emitted when the brush should paint a tile at (tx, ty) at the current
+    // working z. Connected in MainWindow to the setFloor + refresh logic.
+    void paintTile(int tx, int ty);
 
 protected:
     void initializeGL() override;
@@ -121,6 +135,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* e) override;
     void mouseReleaseEvent(QMouseEvent* e) override;
     void keyPressEvent(QKeyEvent* e) override;
+    void keyReleaseEvent(QKeyEvent* e) override;
     void leaveEvent(QEvent* e) override;
 
 private:
@@ -197,12 +212,22 @@ private:
     GLint  uoColor_     = -1;   // vec4 uniform
     GLint  uoSurface_   = -1;   // vec2 surface size (same as uSurface_ but own program)
 
+    // --- Stamp brush state ---
+    // brushName_ non-empty = paint mode.  brushW_/brushD_ = footprint in tiles
+    // (fx/64 wide, fy/128 deep from the sprite metadata).
+    QString brushName_;
+    int     brushW_ = 1, brushD_ = 1;
+    // Last square painted during a stroke (avoids redundant writes on same tile).
+    QPoint  lastPainted_ = {-1, -1};
+
     // --- Camera state (step 3). zoom_ multiplies the base tile size: 1.0 == 1:1
     // (tiles at full 64x32). pan_ is a pixel offset added to the projection
-    // origin. Driven by wheel (zoom-at-cursor) and left-drag (pan).
+    // origin. Driven by: wheel (zoom-at-cursor), middle-drag, Alt+left-drag.
     float zoom_ = 1.0f;
     float panX_ = 0.0f, panY_ = 0.0f;
-    bool  dragging_ = false;
+    bool  dragging_    = false;   // left-button drag (inspect or paint stroke)
+    bool  midDragging_ = false;   // middle-button drag (always pan)
+    bool  altHeld_     = false;   // Alt key currently held
     bool  needsFit_ = false;                  // frame the cell on next paint
     int   lastMouseX_ = 0, lastMouseY_ = 0;
     int   maxLevel_ = 7;                       // level selector: show z <= this
