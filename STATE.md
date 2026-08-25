@@ -4044,3 +4044,53 @@ from the hovered/selected square. For `tw=td=1` this is the existing diamond.
 **When to implement:** this is the first item in the palette/tool chunk. It
 should ship alongside the tile picker so the footprint preview works for
 palette selections, not just typed names. Logging here so it is not forgotten.
+
+### Design note — stamp brush interaction model (2026-08-25)
+
+**Confirmed interaction design** (researched against Tiled, Godot tilemap editor,
+Tilesetter, and other industry-standard tile editors — all converge on the same
+pattern):
+
+| Gesture | Action |
+|---|---|
+| Left-click (no brush loaded) | Inspect tile — current behavior |
+| Left-click (brush loaded) | Place brush at that square |
+| Left-drag (brush loaded) | Paint stroke across multiple squares |
+| Right-click any tile in viewport | Pick up floor tile as active stamp brush |
+| Middle-drag OR Alt+left-drag | Pan — works in ANY mode, brush or not |
+| Scroll wheel | Zoom — unchanged |
+| Escape | Clear brush, return to inspect mode |
+
+**Why Alt+drag for pan:** this is the standard that frees left-click entirely
+for painting without mode collision. Pan is available at any point during a
+paint operation without dropping the brush or switching modes. This directly
+satisfies the requirement: pan freely between picking up a material and placing
+it, while the brush stays loaded.
+
+**What needs to be built:**
+- Brush state object in MapView (active tile name + sprite metadata for
+  footprint sizing). Null = inspect mode, non-null = paint mode.
+- Right-click in viewport: if tile under cursor has a floor, load it as brush.
+  Show the tile name + footprint in the Tile Info dock immediately.
+- Alt+left-drag: pan (same math as current left-drag pan, gated on Alt held).
+  Current left-drag pan remains as-is when no brush is loaded; Alt+drag is
+  the universal pan that works regardless of brush state.
+- Left-click while brush loaded: call setFloor at the clicked square, z =
+  levelSpin value. Drag threshold (3px, already in code) separates click-place
+  from drag-stroke.
+- Left-drag while brush loaded: paint stroke — call setFloor on each new square
+  entered during the drag (track last-painted square to avoid redundant writes).
+- Footprint preview: hover diamond expands to the brush tile's footprint
+  (fx/64 wide × fy/128 deep) using the already-designed queryMeta path. This
+  is the visual warning for multi-tile sprites (see earlier design note).
+- Escape: clear brush, restore inspect mode hover diamond.
+
+**Interaction with existing code:**
+- `mousePressEvent`, `mouseMoveEvent`, `mouseReleaseEvent` all need brush-state
+  awareness. The 3px drag threshold (pressX_/pressY_) already exists.
+- `drawHoverOverlay` already handles the diamond; footprint sizing is additive.
+- `setFloor` write path already works; stroke painting calls it per square.
+- Middle-drag pan: Qt delivers middle-button events via `Qt::MiddleButton` in
+  `mousePressEvent` — same pan math as current left-drag, separate button check.
+
+**NOT yet built. Logged for the palette/tool chunk.**
