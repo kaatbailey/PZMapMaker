@@ -22,8 +22,11 @@
 #include <QMessageBox>
 #include <QSettings>
 #include <QStackedWidget>
+#include <QHBoxLayout>
+#include <QPushButton>
 #include <QStatusBar>
 #include <QTextEdit>
+#include <algorithm>
 #include <filesystem>
 #include <QString>
 #include <QStringList>
@@ -79,6 +82,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     connect(view_, &MapView::tileClicked, this,
         [this](int tx, int ty, QVector<QPair<int,QString>> tiles) {
             if (!tilePanel_) return;
+            selectedTx_ = tx;
+            selectedTy_ = ty;
             QString text = QString("(%1, %2)\n").arg(tx).arg(ty);
             if (tiles.isEmpty()) {
                 text += "\n(empty square)";
@@ -113,14 +118,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     statusBar()->addPermanentWidget(levelLabel_);
     statusBar()->addPermanentWidget(levelSpin_);
     connect(levelSpin_, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, [this](int z) { if (view_) view_->setMaxLevel(z); });
+            this, [this](int z) {
+                if (view_) view_->setMaxLevel(z);
+                QSettings().setValue("workingLevel", z);  // remember across sessions
+            });
     connect(view_, &MapView::maxLevelChanged, this, [this](int z) {
         // Reflect view-side changes (keys, or reset on cell load) without
         // re-triggering the view via the spinbox's own signal. Also keep the
         // range matched to the loaded cell's actual level span.
         QSignalBlocker block(levelSpin_);
-        levelSpin_->setRange(view_->cellMinLevel(), view_->cellMaxLevel());
-        levelSpin_->setValue(z);
+        const int lo = view_->cellMinLevel(), hi = view_->cellMaxLevel();
+        levelSpin_->setRange(lo, hi);
+        // Prefer the remembered working level over the cell's max. maxLevelChanged
+        // fires with the cell max on load; we clamp the saved level into range
+        // and apply it so the view opens where the user last worked, not at the
+        // top floor.
+        const int saved = QSettings().value("workingLevel", 0).toInt();
+        const int want = std::clamp(saved, lo, hi);
+        levelSpin_->setValue(want);
+        if (want != z && view_) view_->setMaxLevel(want);
     });
     view_->setMinimumSize(320, 240);
     view_->setFocusPolicy(Qt::StrongFocus);
@@ -216,16 +232,87 @@ void MainWindow::buildDockPanels() {
     dock->setWidget(container);
     addDockWidget(Qt::LeftDockWidgetArea, dock);
 
-    // C4: Tile Info dock — shows tile names at the clicked square.
+    // C4: Tile Info dock — tile names + properties (read), floor edit (write).
     auto* tileDock = new QDockWidget("Tile Info", this);
     tileDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea
                               | Qt::BottomDockWidgetArea);
-    tilePanel_ = new QTextEdit(tileDock);
+
+    auto* tileContainer = new QWidget(tileDock);
+    auto* tileVBox = new QVBoxLayout(tileContainer);
+    tileVBox->setContentsMargins(2, 2, 2, 2);
+    tileVBox->setSpacing(3);
+
+    tilePanel_ = new QTextEdit(tileContainer);
     tilePanel_->setReadOnly(true);
     tilePanel_->setFont(QFont("Monospace", 9));
     tilePanel_->setPlaceholderText("Click a tile in the viewport to see its names here.");
-    tileDock->setWidget(tilePanel_);
+    tileVBox->addWidget(tilePanel_);
+
+    // Write row: [tile name input] [Set Floor]
+    auto* editRow = new QWidget(tileContainer);
+    auto* editHBox = new QHBoxLayout(editRow);
+    editHBox->setContentsMargins(0, 0, 0, 0);
+    editHBox->setSpacing(3);
+
+    tileEditBox_ = new QLineEdit(editRow);
+    tileEditBox_->setPlaceholderText("Tile name (e.g. floors_interior_tilesandwood_01_0)");
+    tileEditBox_->setFont(QFont("Monospace", 8));
+    editHBox->addWidget(tileEditBox_);
+
+    auto* setFloorBtn = new QPushButton("Set Floor", editRow);
+    setFloorBtn->setFixedWidth(72);
+    editHBox->addWidget(setFloorBtn);
+
+    tileVBox->addWidget(editRow);
+    tileDock->setWidget(tileContainer);
     addDockWidget(Qt::RightDockWidgetArea, tileDock);
+
+    // Set Floor: replace the floor at the selected square at the current
+    // spinbox z-level, then refresh the viewport.
+    connect(setFloorBtn, &QPushButton::clicked, this, [this]() {
+        if (!project_ || !currentCell_) {
+            setStatus("No cell loaded"); return;
+        }
+        if (selectedTx_ < 0) {
+            setStatus("No tile selected — click a tile first"); return;
+        }
+        const QString qname = tileEditBox_->text().trimmed();
+        if (qname.isEmpty()) {
+            setStatus("Enter a tile name"); return;
+        }
+        const std::string name = qname.toStdString();
+        if (!tiles_.get(name)) {
+            setStatus(QString("Unknown tile: %1").arg(qname)); return;
+        }
+        const int z = levelSpin_->value();
+        try {
+            pzformat::LoadedCell& lc = project_->load(*currentCell_);
+            // Remember the tileNames count so we can tell whether this edit
+            // introduced a brand-new name (which needs a sprite-layer rebuild).
+            const std::size_t namesBefore = lc.data->header().tileNames.size();
+
+            lc.editor->setFloor(selectedTx_, selectedTy_, z, name);
+            project_->markDirty(*currentCell_);
+
+            const std::size_t namesAfter = lc.data->header().tileNames.size();
+            // ONLY rebuild the sprite atlas if the edit actually grew the
+            // tileNames table. Rebuilding otherwise re-packs the layer array,
+            // and on a cell that exceeds the 2048-layer GPU cap the re-pack
+            // shuffles which sprite shows on layers past the cap — making
+            // unrelated squares appear to change. When painting with a tile the
+            // cell already contains (the common case), no rebuild is needed.
+            if (atlas_.ready() && namesAfter != namesBefore) {
+                const auto& names = lc.data->header().tileNames;
+                std::vector<std::string> want(names.begin(), names.end());
+                view_->setSprites(atlas_.buildLayers(want));
+            }
+            view_->refreshCell(*lc.data);
+            setStatus(QString("Set floor (%1,%2) z=%3 -> %4")
+                      .arg(selectedTx_).arg(selectedTy_).arg(z).arg(qname));
+        } catch (const std::exception& e) {
+            setStatus(QString("setFloor failed: %1").arg(e.what()));
+        }
+    });
 }
 
 void MainWindow::openMap() {
@@ -380,6 +467,9 @@ void MainWindow::onCellActivated(QListWidgetItem* item) {
     try {
         pzformat::LoadedCell& lc = project_->load(c);
         currentCell_ = c;
+        // Clear any stale selection from the previous cell.
+        selectedTx_ = -1; selectedTy_ = -1;
+        view_->clearSelection();
 
         // Hand the cell to the viewport. It runs the dense-cell census (the C3
         // step-1 measurement) and, later, renders. Switch the central stack

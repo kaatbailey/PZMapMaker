@@ -19,6 +19,7 @@
 class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
+class QPushButton;
 class QTextEdit;
 class QLabel;
 class QSpinBox;
@@ -78,7 +79,11 @@ private:
     QStackedWidget* stack_ = nullptr; // placeholder (0) / viewport (1)
     QLineEdit* cellSearch_ = nullptr;
     QListWidget* cellList_ = nullptr;
-    QTextEdit*   tilePanel_ = nullptr;   // C4: tile info dock
+    QTextEdit*   tilePanel_   = nullptr;  // C4: tile info dock
+    QLineEdit*   tileEditBox_ = nullptr;  // C4: replacement tile name
+    // Last-clicked tile coordinates (cell-local). -1 when nothing selected.
+    int selectedTx_ = -1;
+    int selectedTy_ = -1;
     QLabel* placeholder_ = nullptr;   // shown before a map is open
     MapView* view_ = nullptr;         // GL viewport; central widget once created
     QLabel* levelLabel_ = nullptr;

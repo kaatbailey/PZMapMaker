@@ -180,6 +180,19 @@ void MapView::setCell(const pzformat::CellData& cell) {
     if (isValid()) update();
 }
 
+void MapView::refreshCell(const pzformat::CellData& cell) {
+    // In-place rebuild: recompute instances and picking data from the edited
+    // cell, but do NOT touch zoom_, panX_, panY_, needsFit_, or maxLevel_.
+    // This is the edit path; the camera and level selector stay exactly where
+    // the user left them.
+    census_ = censusOf(cell);
+    buildInstances(cell);
+    haveCell_ = true;
+    dirtyUpload_ = true;   // re-upload instance buffer on next paint
+    emit censusReady(census_);
+    if (isValid()) update();
+}
+
 void MapView::clearCell() {
     census_ = CellCensus{};
     timing_ = PassTiming{};

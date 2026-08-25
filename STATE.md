@@ -3935,3 +3935,79 @@ brushes, undo UI) is next and depends on A3.
 A3-pre1 and A3-pre2 (wall joining prerequisites) per CHUNKS.md, but a
 simpler first step is floor replacement (no wall-join logic needed) to
 prove the edit → dirty → save → reload loop works end-to-end in the UI.
+
+### C4 write side — floor replacement DONE (2026-08-25)
+
+First real editing action works end to end: click a tile, type a floor name,
+Set Floor -> CellEditor::setFloor -> markDirty -> refreshCell. Verified in-app on
+41_37 (downtown). Ctrl+S saves; reload from disk confirms persistence.
+
+**What was built:**
+- Tile Info dock gained a write row: QLineEdit (tile name) + "Set Floor" button.
+- Set Floor handler in MainWindow: validates the name against TileIndex, reads
+  the target z from the level spinbox (working level == view level, as intended),
+  calls `lc.editor->setFloor(tx, ty, z, name)`, marks the cell dirty, and
+  refreshes the viewport.
+- `MapView::refreshCell(cell)` — NEW. Rebuilds instances + picking data from
+  edited cell data WITHOUT touching zoom/pan/level or re-framing. This is the
+  edit path; `setCell` remains the load path (which does re-frame). Fixes the
+  camera-recenter-on-edit bug.
+- `MapView::clearSelection()` — clears the cyan selection diamond; called on
+  cell load so selection doesn't persist across cells (the deferred C4 item).
+- Working level now persists via QSettings("workingLevel"): the spinbox no
+  longer jumps to the cell's max on every load. It restores the last-used level,
+  clamped to the new cell's [min,max]. Fixes "always opens on level 4".
+
+**Sprite atlas rebuild on edit — conditional, and why:**
+`CellData::tileIndex(name)` appends a new name to tileNames if not present,
+giving it a new index past the atlas layers built at load. So an edit that
+introduces a genuinely new name needs a sprite-layer rebuild. BUT rebuilding
+unconditionally re-packs the layer array, and on a cell exceeding the 2048
+GPU layer cap the re-pack shuffles which sprite shows on layers past the cap,
+making unrelated squares appear to change. Fix: rebuild ONLY when
+`tileNames.size()` actually grew (namesAfter != namesBefore). In the normal
+workflow (painting a tile the cell already contains) there is no rebuild and
+the edit is instant. The residual case (new name on a cap-exceeding cell) is
+the 2048-cap limitation, whose real fix is atlas packing (own chunk).
+
+**IMPORTANT non-bug — multi-tile floor sprites:**
+Spent a while chasing a "paints 4 tiles instead of 1" report. It is NOT a bug.
+Proven by dumping the 3x3 data block after each edit: the DATA always changed
+exactly one square (setFloor is correct; CellData::setSquare writes one slot).
+The visual "4 tiles" comes from sprites whose logical tile size (fx,fy) exceeds
+64x128 — e.g. some "Beige Checkered Tiles" floors are 2x2-block sprites whose
+art covers a 2x2 area. Painting one square with such a sprite shows art over
+four tile positions. Confirmed by printing sprite metadata:
+  floors_interior_tilesandwood_01_21: w=63 h=32 fx=64 fy=128 -> single tile,
+    paints one square (correct).
+  floors_interior_tilesandwood_01_54 / _35: larger sprites -> art spans 2x2.
+The shader already places sprites by per-sprite (ox,oy,fx,fy) from PZ's
+prepareToRenderSprite, so this matches how PZ itself renders. TAKEAWAY for the
+tool palette: floors are not all 1x1; palette thumbnails must show the sprite's
+real extent so the user knows whether a tile is single or block-spanning.
+
+**Palette preload — the planned next step (design settled, not yet built):**
+The paint workflow should draw from a fixed tool palette of paintable tiles,
+loaded into the atlas UP FRONT. Then painting never grows the atlas, never
+rebuilds, never shuffles. Constraints worked out this session:
+- Cannot load all 46,540 pack sprites: at 197x256 RGBA8 (~200KB/layer) that is
+  ~9.3 GB and 22x over the 2048-layer cap. Not viable as one-per-layer.
+- Palette-scoped preload IS viable: a floor palette is a few hundred sprites
+  (tens of MB, well under the cap). Load the palette's sprites at startup on
+  top of the cell's own layers. This is the smallest correct fix for editing.
+- The general fix remains atlas PACKING (many sprites per 4096x4096 page: a
+  197x256 sprite packs ~320/page, so 46,540 sprites -> ~146 pages, trivially
+  under any cap). Packing removes the layer wall for both viewing and editing
+  and is the right long-term design. LRU paging sits on top of packing if the
+  full tileset is ever needed resident at once.
+
+**Still open (deferred, not blocking):**
+- GL_INVALID_OPERATION (0x0501) per-frame: FIXED earlier by removing
+  glLineWidth (core profile). Confirmed gone.
+- setSquare/setFloor only handle floors so far. setWall/removeWall/addObject
+  exist in CellEditor but have no UI yet. Next editing actions.
+- Undo/redo: CellEditor has the journal; no UI binding yet (Ctrl+Z/Y).
+
+**NEXT:** either (a) build the tool palette + palette-preload atlas so painting
+is a first-class action with a picker, or (b) wire more CellEditor ops (walls,
+objects, undo) to the UI. (a) is the higher-value path toward a usable editor.
