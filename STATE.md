@@ -4119,3 +4119,17 @@ Items 1–4 of the stamp brush chunk are complete and verified.
 **Files changed:** `app/mapview.hpp`, `app/mapview.cpp`, `app/spriteatlas.hpp`, `app/spriteatlas.cpp`, `app/mainwindow.cpp`.
 
 **CHUNKS update:** C4 stamp brush items 1–4 done. Item 5 (tile picker panel) is next within C4.
+
+
+### C4 brush footprint placement correction — 2026-08-25
+
+A `MapView` update fixed the multi-tile brush placement offset. Previously,
+painting a multi-tile material, such as a 4×4 floor sprite, over a 1×1 material
+could place the visible art offset from the green footprint preview.
+
+The placement direction is now `+(brushW_-1, brushD_-1)`, matching the preview
+box. Verification: rebuilt, picked a 4×4 material, painted where the green box
+showed, and checked the `[paint]` log line against the visible result.
+
+**CONFIRMED:** the art lands perfectly in the green footprint box. The preview
+and write placement now agree for multi-tile floor brushes.
