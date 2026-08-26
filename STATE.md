@@ -4133,3 +4133,29 @@ showed, and checked the `[paint]` log line against the visible result.
 
 **CONFIRMED:** the art lands perfectly in the green footprint box. The preview
 and write placement now agree for multi-tile floor brushes.
+
+
+### C4 brush footprint placement final correction — 2026-08-25
+
+The first C4 brush footprint note was incomplete. The initial click-only fix
+handled one 4x4-on-1x1 case, but drag painting and multi-tile-on-multi-tile
+painting exposed that three coordinates had been conflated: cursor tile,
+visible footprint box, and write tile.
+
+Final verified model:
+- `brushBoxOriginForCursor()` computes the visible green footprint origin from
+  the cursor tile using `brushW_/2` and `brushD_/2`.
+- The green preview, click paint, and drag paint all derive from that same box.
+- `mouseMoveEvent` updates `hoverTile_` before emitting drag paint, so the
+  preview no longer lags one mouse event behind the write.
+- `1x1` brushes write at the box origin.
+- Multi-tile brushes write at `box + (brushW_, brushD_)`.
+
+**CONFIRMED:** `1x1` material painted onto `1x1` lands exactly at the intended
+square, and multi-tile material painted onto multi-tile material lands correctly
+in the green footprint box for both click and drag painting.
+
+Method note: several plausible formulas were wrong in different directions.
+The useful diagnostics were the printed `cursor`, `box`, `write`, `brush`, and
+`hover` values plus visual checks. Do not simplify this back to a single
+`brushW_-1` style anchor without re-running both cases.

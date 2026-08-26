@@ -170,6 +170,10 @@ private:
     // coordinate, using the inverse of the PZ iso transform. Returns (-1,-1) if
     // outside the cell or no cell loaded.
     QPoint screenToTile(float cx, float cy) const;
+    // Brush placement helper: convert the tile under the cursor to the origin
+    // of the visible green footprint box. Paint and overlay must both use this,
+    // or multi-tile brushes drift apart from their preview.
+    QPoint brushBoxOriginForCursor(const QPoint& cursorTile) const;
     void ensureOverlayProgram();
     void drawHoverOverlay();
 

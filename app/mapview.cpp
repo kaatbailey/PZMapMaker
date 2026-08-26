@@ -691,6 +691,25 @@ QPoint MapView::screenToTile(float cx, float cy) const {
     return {tx, ty};
 }
 
+QPoint MapView::brushBoxOriginForCursor(const QPoint& cursorTile) const {
+    if (cursorTile.x() < 0) return {-1, -1};
+
+    // Keep the cursor inside the visible footprint instead of treating
+    // the cursor tile as the footprint origin. For even-sized brushes, bias
+    // toward the lower/left origin so a 2x2 brush under the cursor has
+    // box=cursor-(1,1) and anchor=cursor. Paint and overlay both use this
+    // helper so the green preview and write position cannot diverge.
+    const int ox = brushW_ / 2;
+    const int oy = brushD_ / 2;
+
+    QPoint box{cursorTile.x() - ox, cursorTile.y() - oy};
+    if (box.x() < 0) box.setX(0);
+    if (box.y() < 0) box.setY(0);
+    if (box.x() >= squareDim_) box.setX(squareDim_ - 1);
+    if (box.y() >= squareDim_) box.setY(squareDim_ - 1);
+    return box;
+}
+
 void MapView::wheelEvent(QWheelEvent* e) {
     // Zoom anchored at the cursor: the world point under the pointer stays put.
     // screen = worldIso*zoom + pan. Hold screen fixed at the cursor while zoom
@@ -775,6 +794,20 @@ void MapView::mouseMoveEvent(QMouseEvent* e) {
     const int mx = int(e->position().x());
     const int my = int(e->position().y());
 
+    // Compute the tile under the cursor ONCE for this event. Drag-paint and
+    // the green footprint preview must use the same tile. Previously paint
+    // used the current mouse tile while hoverTile_ was updated after emitting
+    // paint, so the visible green box lagged one mouse event behind the write.
+    const QPoint currentTile = haveCell_ ? screenToTile(float(mx), float(my))
+                                         : QPoint{-1, -1};
+
+    // Hover: update before any paint emit, so refreshCell()/paintGL sees the
+    // same box that this event is about to paint.
+    if (currentTile != hoverTile_) {
+        hoverTile_ = currentTile;
+        update();
+    }
+
     // Pan: middle-drag OR Alt+left-drag (works in any brush mode).
     const bool doPan = midDragging_ || (dragging_ && altHeld_);
     if (doPan) {
@@ -782,29 +815,28 @@ void MapView::mouseMoveEvent(QMouseEvent* e) {
         panY_ += float(my - lastMouseY_);
         update();
     } else if (dragging_ && hasBrush() && haveCell_) {
-        // Paint stroke: emit paintTile for each new square entered.
+        // Paint stroke: emit paintTile for each new footprint box entered.
         const int dx = mx - pressX_, dy = my - pressY_;
-        if (dx*dx + dy*dy > 9) {  // past the 3px click threshold -> stroke
-            const QPoint tile = screenToTile(float(mx), float(my));
-            if (tile.x() >= 0 && tile != lastPainted_) {
-                lastPainted_ = tile;
-                std::printf("[paint-drag] tile=(%d,%d) hover=(%d,%d)\n",
-                            tile.x(), tile.y(), hoverTile_.x(), hoverTile_.y());
-                std::fflush(stdout);
-                emit paintTile(tile.x(), tile.y());
+        if (dx*dx + dy*dy > 9) {
+            if (currentTile.x() >= 0) {
+                const QPoint box = brushBoxOriginForCursor(currentTile);
+                if (box.x() >= 0 && box != lastPainted_) {
+                    lastPainted_ = box;
+                    const int wx = box.x() + (brushW_ > 1 ? brushW_ : 0);
+                    const int wy = box.y() + (brushD_ > 1 ? brushD_ : 0);
+                    std::printf("[paint-drag] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d hover=(%d,%d)\n",
+                                currentTile.x(), currentTile.y(),
+                                box.x(), box.y(), wx, wy,
+                                brushW_, brushD_, hoverTile_.x(), hoverTile_.y());
+                    std::fflush(stdout);
+                    emit paintTile(wx, wy);
+                }
             }
         }
     }
+
     lastMouseX_ = mx;
     lastMouseY_ = my;
-
-    // Hover: update the highlighted tile whether or not we are dragging.
-    const QPoint newHover = haveCell_ ? screenToTile(float(mx), float(my))
-                                      : QPoint{-1, -1};
-    if (newHover != hoverTile_) {
-        hoverTile_ = newHover;
-        update();   // repaint to move the diamond / footprint outline
-    }
     e->accept();
 }
 
@@ -838,13 +870,15 @@ void MapView::mouseReleaseEvent(QMouseEvent* e) {
                     // and-right (NE, +x/+y) of the anchor tile, so the picture
                     // lands offset from the green box. Shift the anchor down-left
                     // by the footprint's extent so the art lands under the box.
-                    const int ax = tile.x() + (brushW_ - 1);
-                    const int ay = tile.y() + (brushD_ - 1);
-                    lastPainted_ = tile;
-                    std::printf("[paint] box tile=(%d,%d) -> anchor=(%d,%d) brush=%dx%d\n",
-                                tile.x(), tile.y(), ax, ay, brushW_, brushD_);
+                    const QPoint box = brushBoxOriginForCursor(tile);
+                    const int wx = box.x() + (brushW_ > 1 ? brushW_ : 0);
+                    const int wy = box.y() + (brushD_ > 1 ? brushD_ : 0);
+                    lastPainted_ = box;
+                    std::printf("[paint] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d\n",
+                                tile.x(), tile.y(), box.x(), box.y(), wx, wy,
+                                brushW_, brushD_);
                     std::fflush(stdout);
-                    emit paintTile(ax, ay);
+                    emit paintTile(wx, wy);
                 } else {
                     // Inspect mode: emit tileClicked with the full z stack.
                     QVector<QPair<int,QString>> tiles;
@@ -1013,7 +1047,8 @@ void MapView::drawHoverOverlay() {
     if (haveHover) {
         const int fw = brushMode ? brushW_ : 1;
         const int fd = brushMode ? brushD_ : 1;
-        footprintNDC(float(hoverTile_.x()), float(hoverTile_.y()), fw, fd, verts);
+        const QPoint box = brushMode ? brushBoxOriginForCursor(hoverTile_) : hoverTile_;
+        footprintNDC(float(box.x()), float(box.y()), fw, fd, verts);
         glBindBuffer(GL_ARRAY_BUFFER, overlayVbo_);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
         if (brushMode)
