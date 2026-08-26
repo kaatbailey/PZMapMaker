@@ -217,6 +217,11 @@ void MapView::setBrush(const QString& tileName, const SpriteAtlas* atlas) {
             brushD_ = std::max(1, L.fy / 128);
         }
     }
+    // Default typed/palette brush: one tile. Right-click pickup may replace this
+    // with a multi-square captured stamp after setBrush() returns.
+    brushCells_.clear();
+    if (!tileName.isEmpty())
+        brushCells_.append({QPoint{0, 0}, tileName});
     lastPainted_ = {-1, -1};
     update();
 }
@@ -224,6 +229,7 @@ void MapView::setBrush(const QString& tileName, const SpriteAtlas* atlas) {
 void MapView::clearBrush() {
     brushName_.clear();
     brushW_ = 1; brushD_ = 1;
+    brushCells_.clear();
     lastPainted_ = {-1, -1};
     update();
 }
@@ -770,6 +776,40 @@ void MapView::mousePressEvent(QMouseEvent* e) {
                                 name.toStdString().c_str(), z);
                     std::fflush(stdout);
                     emit floorPickedUp(name, z);
+
+                    // After floorPickedUp returns, MainWindow has called setBrush(),
+                    // so brushW_/brushD_ reflect this tile metadata. Capture every
+                    // floor tile in the visible footprint box. This turns true
+                    // multi-square materials into real stamps while preserving the
+                    // one-tile fallback for oversized single-sprite floors.
+                    const QPoint box = brushBoxOriginForCursor(tile);
+                    brushCells_.clear();
+                    if (box.x() >= 0) {
+                        for (int dx = 0; dx < brushW_; ++dx) {
+                            for (int dy = 0; dy < brushD_; ++dy) {
+                                const int sx = box.x() + dx;
+                                const int sy = box.y() + dy;
+                                if (sx < 0 || sy < 0 || sx >= squareDim_ || sy >= squareDim_)
+                                    continue;
+                                const int sslot = zi * squareDim_ * squareDim_
+                                                + sx * squareDim_ + sy;
+                                for (std::int32_t sti : squareTiles_[static_cast<size_t>(sslot)]) {
+                                    if (sti < 0 || sti >= static_cast<int>(cellTileNames_.size()))
+                                        continue;
+                                    const std::string& sn = cellTileNames_[static_cast<size_t>(sti)];
+                                    if (!looksLikeFloor(sn))
+                                        continue;
+                                    brushCells_.append({QPoint{dx, dy}, QString::fromStdString(sn)});
+                                    break;  // one floor per source square
+                                }
+                            }
+                        }
+                    }
+                    if (brushCells_.isEmpty())
+                        brushCells_.append({QPoint{0, 0}, name});
+                    std::printf("[pickup] stamp box=(%d,%d) brush=%dx%d cells=%d\n",
+                                box.x(), box.y(), brushW_, brushD_, brushCells_.size());
+                    std::fflush(stdout);
                     picked = true;
                     break;
                 }
@@ -824,12 +864,16 @@ void MapView::mouseMoveEvent(QMouseEvent* e) {
                     lastPainted_ = box;
                     const int wx = box.x() + (brushW_ > 1 ? brushW_ : 0);
                     const int wy = box.y() + (brushD_ > 1 ? brushD_ : 0);
-                    std::printf("[paint-drag] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d hover=(%d,%d)\n",
+                    std::printf("[paint-drag] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d cells=%d hover=(%d,%d)\n",
                                 currentTile.x(), currentTile.y(),
                                 box.x(), box.y(), wx, wy,
-                                brushW_, brushD_, hoverTile_.x(), hoverTile_.y());
+                                brushW_, brushD_, brushCells_.size(),
+                                hoverTile_.x(), hoverTile_.y());
                     std::fflush(stdout);
-                    emit paintTile(wx, wy);
+                    if (brushCells_.size() > 1)
+                        emit paintStamp(box.x(), box.y(), brushCells_);
+                    else
+                        emit paintTile(wx, wy);
                 }
             }
         }
@@ -874,11 +918,14 @@ void MapView::mouseReleaseEvent(QMouseEvent* e) {
                     const int wx = box.x() + (brushW_ > 1 ? brushW_ : 0);
                     const int wy = box.y() + (brushD_ > 1 ? brushD_ : 0);
                     lastPainted_ = box;
-                    std::printf("[paint] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d\n",
+                    std::printf("[paint] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d cells=%d\n",
                                 tile.x(), tile.y(), box.x(), box.y(), wx, wy,
-                                brushW_, brushD_);
+                                brushW_, brushD_, brushCells_.size());
                     std::fflush(stdout);
-                    emit paintTile(wx, wy);
+                    if (brushCells_.size() > 1)
+                        emit paintStamp(box.x(), box.y(), brushCells_);
+                    else
+                        emit paintTile(wx, wy);
                 } else {
                     // Inspect mode: emit tileClicked with the full z stack.
                     QVector<QPair<int,QString>> tiles;

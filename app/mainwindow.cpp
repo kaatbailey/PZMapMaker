@@ -156,6 +156,50 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
         }
     });
 
+    // Stamp brush: true multi-square copied stamps. MapView sends the target
+    // visible box origin plus per-cell floor names captured at pickup.
+    connect(view_, &MapView::paintStamp, this,
+        [this](int boxX, int boxY, QVector<QPair<QPoint,QString>> cells) {
+            if (!project_ || !currentCell_) return;
+            if (cells.isEmpty()) return;
+            const int z = levelSpin_ ? levelSpin_->value() : 0;
+            std::printf("[setStamp] box=(%d,%d) cells=%d z=%d
+",
+                        boxX, boxY, cells.size(), z);
+            std::fflush(stdout);
+            try {
+                pzformat::LoadedCell& lc = project_->load(*currentCell_);
+                const std::size_t namesBefore = lc.data->header().tileNames.size();
+
+                lc.editor->begin("stamp floor");
+                for (const auto& cell : cells) {
+                    const QPoint off = cell.first;
+                    const QString qname = cell.second;
+                    const std::string name = qname.toStdString();
+                    if (!tiles_.get(name))
+                        continue;
+                    const int tx = boxX + off.x();
+                    const int ty = boxY + off.y();
+                    std::printf("[setStamp] writing %s at (%d,%d) z=%d off=(%d,%d)
+",
+                                name.c_str(), tx, ty, z, off.x(), off.y());
+                    lc.editor->setFloor(tx, ty, z, name);
+                }
+                lc.editor->end();
+
+                project_->markDirty(*currentCell_);
+                const std::size_t namesAfter = lc.data->header().tileNames.size();
+                if (atlas_.ready() && namesAfter != namesBefore) {
+                    const auto& names = lc.data->header().tileNames;
+                    std::vector<std::string> want(names.begin(), names.end());
+                    view_->setSprites(atlas_.buildLayers(want));
+                }
+                view_->refreshCell(*lc.data);
+            } catch (const std::exception& e) {
+                setStatus(QString("stamp failed: %1").arg(e.what()));
+            }
+        });
+
     // Level selector (Model B): a spinbox in the status bar shows all tiles at
     // or below the chosen z. Two-way synced: keys ([ ] and digits) in the view
     // update the box, and the box updates the view.
