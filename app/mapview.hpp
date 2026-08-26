@@ -124,6 +124,11 @@ signals:
     // working z. Connected in MainWindow to the setFloor + refresh logic.
     void paintTile(int tx, int ty);
 
+    // Paint a copied multi-cell stamp. boxX/boxY are the footprint
+    // origin and each pair contains a cell-local offset and tile name.
+    void paintStamp(int boxX, int boxY,
+                    QVector<QPair<QPoint, QString>> cells);
+
 protected:
     void initializeGL() override;
     void resizeGL(int w, int h) override;
@@ -221,6 +226,10 @@ private:
     // (fx/64 wide, fy/128 deep from the sprite metadata).
     QString brushName_;
     int     brushW_ = 1, brushD_ = 1;
+
+    // Cells captured when a floor is picked up with right-click.
+    // Offsets are relative to the picked-up 2D footprint.
+    QVector<QPair<QPoint, QString>> brushCells_;
     // Last square painted during a stroke (avoids redundant writes on same tile).
     QPoint  lastPainted_ = {-1, -1};
 

@@ -808,7 +808,7 @@ void MapView::mousePressEvent(QMouseEvent* e) {
                     if (brushCells_.isEmpty())
                         brushCells_.append({QPoint{0, 0}, name});
                     std::printf("[pickup] stamp box=(%d,%d) brush=%dx%d cells=%d\n",
-                                box.x(), box.y(), brushW_, brushD_, brushCells_.size());
+                                box.x(), box.y(), brushW_, brushD_, static_cast<int>(brushCells_.size()));
                     std::fflush(stdout);
                     picked = true;
                     break;
@@ -867,7 +867,7 @@ void MapView::mouseMoveEvent(QMouseEvent* e) {
                     std::printf("[paint-drag] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d cells=%d hover=(%d,%d)\n",
                                 currentTile.x(), currentTile.y(),
                                 box.x(), box.y(), wx, wy,
-                                brushW_, brushD_, brushCells_.size(),
+                                brushW_, brushD_, static_cast<int>(brushCells_.size()),
                                 hoverTile_.x(), hoverTile_.y());
                     std::fflush(stdout);
                     if (brushCells_.size() > 1)
@@ -920,7 +920,8 @@ void MapView::mouseReleaseEvent(QMouseEvent* e) {
                     lastPainted_ = box;
                     std::printf("[paint] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d cells=%d\n",
                                 tile.x(), tile.y(), box.x(), box.y(), wx, wy,
-                                brushW_, brushD_, brushCells_.size());
+                                brushW_, brushD_,
+                                static_cast<int>(brushCells_.size()));
                     std::fflush(stdout);
                     if (brushCells_.size() > 1)
                         emit paintStamp(box.x(), box.y(), brushCells_);

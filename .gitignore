@@ -14,3 +14,13 @@ compile_commands.json
 *~
 out/
 *.class
+fix_stamp.py
+.stamp_alignment_backup_20260826_173417/mainwindow.cpp
+.stamp_alignment_backup_20260826_173826/mainwindow.cpp
+.stamp_alignment_repair_20260826_173559/mainwindow.cpp
+.stamp_alignment_repair_20260826_173559/mapview.cpp
+.stamp_fix_backup_20260826_172736/mainwindow.cpp
+.stamp_fix_backup_20260826_172736/mapview.cpp
+.stamp_fix_backup_20260826_172736/mapview.hpp
+fix_stamp_alignment.py
+repair_build.py

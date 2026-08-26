@@ -163,9 +163,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             if (!project_ || !currentCell_) return;
             if (cells.isEmpty()) return;
             const int z = levelSpin_ ? levelSpin_->value() : 0;
-            std::printf("[setStamp] box=(%d,%d) cells=%d z=%d
-",
-                        boxX, boxY, cells.size(), z);
+            std::printf("[setStamp] box=(%d,%d) cells=%d z=%d\\n",
+                        boxX, boxY, static_cast<int>(cells.size()), z);
             std::fflush(stdout);
             try {
                 pzformat::LoadedCell& lc = project_->load(*currentCell_);
@@ -178,10 +177,35 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                     const std::string name = qname.toStdString();
                     if (!tiles_.get(name))
                         continue;
-                    const int tx = boxX + off.x();
-                    const int ty = boxY + off.y();
-                    std::printf("[setStamp] writing %s at (%d,%d) z=%d off=(%d,%d)
-",
+                    // The stamp offsets describe the captured footprint.
+                    // Derive its dimensions here because brushW_/brushD_
+                    // belong to MapView and are not available in MainWindow.
+                    const int stampW = [&]() {
+                        int w = 1;
+                        for (const auto& c : cells)
+                            w = std::max(w, c.first.x() + 1);
+                        return w;
+                    }();
+
+                    const int stampD = [&]() {
+                        int d = 1;
+                        for (const auto& c : cells)
+                            d = std::max(d, c.first.y() + 1);
+                        return d;
+                    }();
+
+                    // Multi-tile floor sprites render their art up/right
+                    // of the map anchor. The green footprint is the visible
+                    // destination. The stamp needs the footprint correction
+                    // minus one cell so its rendered footprint aligns with
+                    // the green preview.
+                    const int tx = boxX
+                              + (stampW > 1 ? stampW - 1 : 0)
+                              + off.x();
+                    const int ty = boxY
+                              + (stampD > 1 ? stampD - 1 : 0)
+                              + off.y();
+                    std::printf("[setStamp] writing %s at (%d,%d) z=%d off=(%d,%d)\\n",
                                 name.c_str(), tx, ty, z, off.x(), off.y());
                     lc.editor->setFloor(tx, ty, z, name);
                 }

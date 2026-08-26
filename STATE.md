@@ -4159,3 +4159,36 @@ Method note: several plausible formulas were wrong in different directions.
 The useful diagnostics were the printed `cursor`, `box`, `write`, `brush`, and
 `hover` values plus visual checks. Do not simplify this back to a single
 `brushW_-1` style anchor without re-running both cases.
+`
+`### C4 stamp brush placement — final verified correction (2026-08-26)
+
+The C4 stamp brush placement issue is now CONFIRMED fixed in the running
+application.
+
+The affected material is a **2×2 footprint (4 map cells)**, not a 4×4
+four-cell footprint. Right-click pickup captures the four floor cells as a
+stamp, the viewport shows the corresponding green 2×2 footprint, and
+left-click placement now puts the rendered material inside that green
+footprint.
+
+The final placement model has three distinct coordinates and they must not
+be conflated:
+
+* `cursorTile` — the map square under the mouse.
+* `brushBoxOriginForCursor()` — the visible footprint origin used by the
+  green preview.
+* the write anchor — the map coordinate used when the captured stamp is
+  written.
+
+`MapView` remains responsible for the cursor/footprint geometry. The
+`paintStamp(boxX, boxY, cells)` signal passes the footprint origin and the
+captured per-cell offsets to `MainWindow`.
+
+The final stamp write correction is:
+
+```text
+1×1:
+    write = box
+
+multi-cell:
+    write = box + (stampW - 1, stampD - 1) + cellOffset
