@@ -24,3 +24,4 @@ fix_stamp.py
 .stamp_fix_backup_20260826_172736/mapview.hpp
 fix_stamp_alignment.py
 repair_build.py
+.aiassistant/rules/pzmapmaker_workflow.md
