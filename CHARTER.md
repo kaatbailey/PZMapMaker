@@ -38,19 +38,42 @@ rendering a map that a human is authoring, it is out of scope.
 
 ## 2. The GIS pipeline is a side project
 
-`GisImport` / `GisCells` turn public-domain GIS data into a playable map mod. It
-exists for three bounded reasons:
+`GisImport` / `GisCells` turn public-domain GIS data into a playable map mod.
+**As of 2026-08-31 it is a shipped feature of the application**, reached from a
+menu item and running in its own window — not a side project.
 
+It exists for four reasons:
+
+- It is a useful quick-start path for users: real town in, playable map out.
+  Nothing else in the tool produces a whole map from nothing.
 - It exercises the whole stack end to end — headers, tile tables, floors, walls,
   rooms, buildings, chunk grid, spawn points, biome maps.
 - **It is how the engine's mod contract was learned.** Nearly everything known
   about how B42 accepts an authored map came from making a generated map load
   and diagnosing why it looked wrong. The editor needs that contract regardless
   of who authors the tiles.
-- It is a useful quick-start path for users: real town in, playable map out.
+- Generated maps are the editor's most demanding test input, and the only one we
+  can vary on purpose.
 
-**When the two conflict, the editor wins.** GIS features are worth building only
-when they teach something the editor needs, or when they are nearly free.
+**The editor is still primary.** Where a GIS feature and an editor feature
+compete for the same session, the editor wins. What has changed is that GIS work
+no longer has to justify itself by teaching the editor something — shipping is
+reason enough.
+
+**Layer discipline is unchanged.** The generator is application layer. It may
+use Qt and other permissively-licensed dependencies. It must not push
+dependencies down into the format or semantic layers (§3).
+
+**Licensing is not optional here.** Shipping a generator that pulls third-party
+GIS data is a different posture than a research script. US federal sources
+(USA Structures, TIGER/Line, NHD) are public domain. OpenStreetMap is ODbL and
+requires attribution and share-alike on derived maps. Any shipped generator must
+carry correct attribution for whichever source it used. See CHUNKS D3.
+
+| 2026-08-31 | GIS reclassified from side project to shipped feature: the generator ships in the application as its own window. §2 rewritten. The editor remains primary where the two compete, but GIS work no longer needs to justify itself by teaching the editor something. Triggered by the discovery that the 2026-08-21 C++ port deliberately excluded all GIS plumbing as out of scope — correct under §2 as written, wrong under the new intent. Port tracked as CHUNKS Track F. |
+
+All of the C++ Port of the Java Version of this app will live at PZMapMaker
+and PZMapCreation will become archive only.
 
 ---
 

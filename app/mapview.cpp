@@ -862,8 +862,9 @@ void MapView::mouseMoveEvent(QMouseEvent* e) {
                 const QPoint box = brushBoxOriginForCursor(currentTile);
                 if (box.x() >= 0 && box != lastPainted_) {
                     lastPainted_ = box;
-                    const int wx = box.x() + (brushW_ > 1 ? brushW_ : 0);
-                    const int wy = box.y() + (brushD_ > 1 ? brushD_ : 0);
+                  const int wx = box.x() + (brushW_ > 1 ? brushW_ : 0);
+                  const int wy = box.y() + (brushD_ > 1 ? brushD_ : 0);
+
                     std::printf("[paint-drag] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d cells=%d hover=(%d,%d)\n",
                                 currentTile.x(), currentTile.y(),
                                 box.x(), box.y(), wx, wy,
@@ -917,6 +918,7 @@ void MapView::mouseReleaseEvent(QMouseEvent* e) {
                     const QPoint box = brushBoxOriginForCursor(tile);
                     const int wx = box.x() + (brushW_ > 1 ? brushW_ : 0);
                     const int wy = box.y() + (brushD_ > 1 ? brushD_ : 0);
+
                     lastPainted_ = box;
                     std::printf("[paint] cursor=(%d,%d) box=(%d,%d) -> write=(%d,%d) brush=%dx%d cells=%d\n",
                                 tile.x(), tile.y(), box.x(), box.y(), wx, wy,

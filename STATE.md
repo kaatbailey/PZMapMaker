@@ -4192,3 +4192,193 @@ The final stamp write correction is:
 
 multi-cell:
     write = box + (stampW - 1, stampD - 1) + cellOffset
+```
+
+### GIS — Japan/OSM source, and the discovery that GIS was never ported (2026-08-31)
+
+Folded from `FINDINGS_GIS_2026-08-31.md`. Three things happened: a second data
+source was added to the fetch script, a shipped feature was found to be
+undocumented, and the C++ port was found to have deliberately excluded the whole
+GIS pipeline.
+
+#### `fetch_gis.py` now picks a source from the bounding box
+
+US box → USA Structures + TIGER/Line, unchanged. Anything else → OpenStreetMap
+via Overpass, which has global coverage. `--source us|osm` forces either. The US
+path was not otherwise modified.
+
+OSM buildings are mapped onto the **US vocabulary**: OSM tags translate to the
+same `OCC_CLS` / `PRIM_OCC` fields USA Structures produces, so `GisImport` does
+not know or care which country the data came from. Function tags beat the
+physical tag — `building=yes` + `amenity=restaurant` → Commercial, not
+Unclassified. `PRIM_OCC` keeps the OSM `key=value` that produced the class,
+mirroring how PRIM_OCC splits Commercial in USA Structures.
+
+OSM water is written as **`water.geojson`, not `rivers.geojson`**, because
+`GisImport` auto-discovers that exact filename beside `buildings.geojson`. Each
+feature carries an NHD-style `fcode` mapped from the OSM waterway type so the
+existing `waterWidth()` switch picks a channel width without knowing the data is
+not NHD: river/riverbank → 46000 (3 tiles), stream → 46006 (2), canal → 33600,
+drain → 33601, ditch → 33603, default 46000.
+
+`landuse.geojson` is fetched but nothing reads it — `Cover` has no landcover
+type. Written so the data is on disk when one exists.
+
+**US-side bug fixed in the same pass.** Road dedup was keyed on `LINEARID`,
+which drops distinct segments of a road that crosses the box twice. Now keyed on
+geometry, which is what §6 says it should be. The shipped script had regressed.
+
+**Verified.** Ohio box unchanged: 7 buildings, 1 road, `Co Hwy 26` — matches the
+dataset recorded in §6. Tokyo box (Moto-Akasaka, 305 × 171 m): 59 buildings, 17
+roads, 1 water body, 8 landuse polygons.
+
+#### CORRECTION — §980 and §2466 are wrong about `Cover`, and have been since 2026-08-21
+
+Both say `GisImport.Cover` is `{NONE, ROAD, BUILDING}`. **It is
+`{NONE, WATER, ROAD, BUILDING}`.** On 2026-08-21 a patch added `WATER` to the
+enum, created `WaterTiles.java`, wired auto-discovery of `water.geojson` beside
+`buildings.geojson`, and shipped: Little West Fork Ohio Brush Creek, 1 feature,
+**1,486 tiles**, `blends_natural_02_0`, confirmed in game, committed and pushed.
+Water wins over grass, loses to roads and buildings. Evidence: the enum at
+`GisImport.java:38`, and `WaterTiles.java` on disk dated 20 Aug.
+
+**The landcover half of §2466 remains TRUE** — there is still no landcover
+import.
+
+**The water work was never recorded anywhere.** A search across both repos for
+markdown mentioning water/river/hydro/fcode/NHD found only the palette table and
+passing references — no orphaned FINDINGS file, no partially folded section. A
+shipped, in-game-confirmed feature went undocumented for ten days. Reading
+§2466 as current in this session led to designing an enum extension that already
+existed, costing a round trip. **Charter §4's "check what exists before building
+anything" applies to our own tree, not only to vanilla.**
+
+#### CORRECTION — the C++ port excluded the entire GIS pipeline
+
+STATE's "Editor-track inventory (2026-08-21)" lists GIS plumbing as OUT OF SCOPE
+for the port, and that is exactly what happened. A full file listing of the C++
+repo contains no `Gis*`, no `GeoJson`, no `Json`, no `TilePalette`, no
+`WaterTiles`. The only `Cover` match in C++ is `squaresCovered`, unrelated.
+
+This was **correct under Charter §2 as written** — GIS was a side project that
+had to justify itself by teaching the editor something. The owner has since
+clarified (2026-08-31) that the GIS generator **ships with the application**, in
+its own window reached from a menu item, because it is the path to a playable
+map for **non-technical and disabled users** who want to make a PZ map without
+learning TileZed. GIS remains a side project in the sense Charter §2 means —
+the editor is still the main work — but "side project" no longer implies "not
+shipped."
+
+The port is tracked as **CHUNKS Track F**. Charter §2 amendment is the owner's
+to make (Charter §5).
+
+#### Consequence: GIS work happens in the Java tree
+
+`Probe giscells`, `Cover.WATER` and `WaterTiles` exist **only** at
+`~/Documents/PZMapCreation`. The editor is C++ at `~/Documents/PZMapMaker`.
+"We don't use PZMapCreation anymore" is true for editor work and false for GIS
+work. This split cost a round trip in this session and will again until Track F
+lands.
+
+Both repos carry their own `STATE.md` and `CHUNKS.md`, with different
+water-mention counts (7 vs 8), so they have **diverged**. Two copies of an
+append-only governance document is the drift condition Charter §5 exists to
+prevent. Unresolved; the test is `diff` them.
+
+#### UNVERIFIED — areal water probably traces a perimeter instead of filling
+
+`GisImport` appears to walk each ring calling `waterLine` between consecutive
+points, which draws an outline. Ohio's creek was linear so this never showed.
+Tokyo's water body is `natural=water`, an **area**. If the loop is what it looks
+like, a lake comes out as a ring of water with dry ground inside.
+
+**The test:** generate Tokyo and look at the water. The fetch script marks areal
+features `AREAL=yes` and prints the count so the case is visible rather than
+silently wrong. Not yet run. Tracked as **E15**.
+
+#### UNVERIFIED — whether OSM Japan can drive per-class recipes at all
+
+The Moto-Akasaka box returned **Unclassified 58, Religion 1**. Most Japanese
+buildings carry a bare `building=yes` with no `amenity`/`shop`/`office`, so there
+is nothing to classify from. This is not a mapping bug — the single Religion hit
+shows the mapping fires when tags exist — and that box is Akasaka Palace grounds,
+where minimal tagging is expected.
+
+**But it threatens every plan that keys off occupancy class:** E2 density by
+class, §2777 wall and floor materials per class, biome per parcel, §2821 room
+recipes. **The test:** fetch a commercial box (Shinjuku, Akihabara) and compare
+the class histogram; businesses get tagged even where buildings do not. If a
+commercial box is still mostly Unclassified, OSM Japan cannot drive per-class
+recipes and the driver must be something else — footprint area,
+`building:levels`, or road-class proximity. **Do not assume; measure first.**
+
+#### LICENSING — OSM is ODbL, and shipping changes the posture
+
+The US path uses federal public-domain data (USA Structures, TIGER/Line, NHD)
+with no attribution requirement. **OpenStreetMap is ODbL**: attribution and
+share-alike on derived maps. Any published OSM-derived map must carry
+attribution; the generated mod does not. The fetch script prints the notice.
+
+Shipping a generator inside the application is also a different licensing
+posture than running a research script. Both feed **D3**, which is no longer a
+someday-decision.
+
+#### Noticed, out of scope
+
+- **Roads render jaggy.** PZ ships dedicated road tiles with corner and edge
+  variants the importer does not use. Same shape of problem as A3 wall-joining —
+  it should **inherit E9's neighbour-rule engine**, not grow a second one.
+  Tracked as **E17**.
+- **`FINDINGS_E13_2026-08-19.md` is still in the C++ repo root.** Its content is
+  folded (E13 ticked, §35/§36 carry it), so per Charter §5 it is disposable.
+  Left alone; deletion is an owner call.
+- **The `Probe render` invocation recorded in §6 takes a 64-tile crop**
+  (`200_200 80 157 64 0 0`). Pasted as-is it looks like a nearly empty map. Use
+  `0 0 256 0 0` for a whole cell. This cost a round trip.
+
+#### Commands
+
+```fish
+# Fetch — source chosen from the bbox, no flag needed
+python3 ~/pzgis/fetch_gis.py ~/pzgis/tokyo.geojson ~/pzgis/tokyo
+python3 ~/pzgis/fetch_gis.py ~/pzgis/area.geojson  ~/pzgis        # US, unchanged
+
+# Generate Tokyo — GIS pipeline lives ONLY in the Java tree
+cd ~/Documents/PZMapCreation
+set PZ ~/.local/share/Steam/steamapps/common/ProjectZomboid/projectzomboid
+java -cp out pzformat.Probe giscells \
+    ~/pzgis/tokyo/buildings.geojson \
+    ~/pzgis/tokyo/roads.geojson \
+    ~/pzgis/tokyo.geojson \
+    "$PZ/media" ~/Zomboid/mods PZTokyo
+# water.geojson is auto-discovered beside buildings.geojson — NOT an argument.
+# Look for a "water features:" line and a water tile count.
+
+# Render a WHOLE cell (256 wide), not the 64-tile crop
+set GISMAP ~/Zomboid/mods/PZTokyo/common/media/maps/PZTokyo
+java -Xmx4g -cp out pzformat.Probe render "$GISMAP" "$PZ/media/texturepacks" \
+    200_200 0 0 256 0 0 ~/pzrender/tokyo_full.png
+```
+
+#### What the next chunk needs to know
+
+- **The GIS pipeline is Java-only and must be ported.** Track F.
+- The C++ tree already has everything `GisCells` writes *through* — `CellData`,
+  `LotHeader`, `LotPack`, `TileIndex`, `Square`, `CellEditor`, `MapProject` are
+  ported and verified byte-identical. **The GIS port is pure logic and palette
+  selection, not format work.**
+- **The port has an unusually strong oracle:** run Java `giscells` and C++
+  `giscells` on the same GeoJSON and diff the generated mod byte-for-byte.
+  Charter §4's independent-source rule with no interpretation gap.
+- **RNG will break that oracle if ported carelessly.** `GisCells` seeds `Random`
+  per cell, and the dither flip is driven by a **position hash**, not the
+  sequential `Random` (§28). `std::mt19937` will not reproduce
+  `java.util.Random` — port the LCG explicitly or the diff never clears.
+- `BuildingPlan` is a pure function with a standalone self-test over 14,680
+  layouts (`java -cp out pzformat.BuildingPlan`). Port against that test.
+- **The schematic PNG deferral resolves itself.** `GisImport` writes a PNG,
+  which needs image encode that C++ std lacks; STATE deferred this for
+  `CellRenderer` to keep the library layer dependency-free. Since the generator
+  is **app layer**, Qt's `QImage` covers it and Charter §3 is unaffected.
+- **Water and Japan both work in Java today.** Generating Tokyo does not wait on
+  the port.

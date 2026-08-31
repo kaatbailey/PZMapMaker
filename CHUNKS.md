@@ -75,14 +75,14 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 |---|---|---|---|
 | `[ ]` | **D1** Fast round-trip regression | — | Sub-minute suite |
 | `[ ]` | **D2** Publish B42 format documentation | — | Public doc |
-| `[ ]` | **D3** GIS licensing review and project licence | — | Decision |
+| `[ ]` | **D3** GIS licensing review and project licence | — | Decision. **Now blocking, not hypothetical:** the OSM/Japan path (2026-08-31) brings ODbL attribution and share-alike. The US path was federal public domain and carried no such duty. Any published OSM-derived map must carry attribution; the generated mod does not. Shipping a generator inside the app is also a different posture than a research script. See STATE §"GIS — Japan/OSM source". |
 
-### Track E — GIS pipeline. Charter §2: worth building only when it teaches the editor something, or is nearly free.
+### Track E — GIS pipeline behaviour. **Scope clarified 2026-08-31:** the GIS generator ships with the application (own window, menu item) as an accessibility path — a playable map for non-technical and disabled users who will not learn TileZed. The editor is still the main work and still wins where the two compete for a session; "side project" no longer implies "not shipped." The **port** of this pipeline to C++ is Track F.
 
 | | Chunk | Depends on | Deliverable |
 |---|---|---|---|
 | `[x]` | **E1** Write zombie density into `chunkGrid` | — | **DONE 2026-08-11, confirmed in game** (STATE §23) |
-| `[ ]` | **E2** Calibrate density values | E1 | Values by occupancy class, not one constant |
+| `[ ]` | **E2** Calibrate density values | E1 | Values by occupancy class, not one constant. **Caveat 2026-08-31:** on Japanese OSM occupancy class is mostly `Unclassified` (58 of 59 in the first sample). Measure a commercial box before assuming class is available, or Japanese maps get one density everywhere |
 | `[x]` | **E3** Ground blending investigation | — | **CLOSED 2026-08-13. Mechanism CONFIRMED** (STATE §26, `docs/E3_GROUND_BLENDING.md`) |
 | | **E4** Scene rotation pass | — | **RETIRED 2026-08-14.** Premise fails and it was never needed (STATE §30) |
 | `[x]` | **E5** `FootprintSnap` | — | **CLOSED 2026-08-14. Buildings are rectangles** (STATE §31, §32, `docs/e5_buildings.png`) |
@@ -95,6 +95,41 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 | `[ ]` | **E10** Restore dirt, gated to yards and tracks | E8 | Reverses test 27's symptom fix |
 | `[ ]` | **E11** Region shape | E9 | Yards read as an 8-10 square apron; vanilla's minority squares form chains, ours are isolates |
 | `[ ]` | **E12** Diagonal mask clause | E9 | Small. Extend `MaskAudit` to record diagonal geometry first |
+| `[ ]` | **E15** Areal water fill | — | `natural=water` polygons fill rather than trace a perimeter. Small if `fillPolygon` is reusable — buildings already use it. **Confirm the defect before fixing it** (STATE 2026-08-31, UNVERIFIED) |
+| `[ ]` | **E16** Landuse import | E15 | `Cover` gains landcover. **Design gate first:** one `LANDCOVER` value with a type field, or distinct `FOREST`/`GRASS`/`PARK`/`FARMLAND`? Then where it slots into the E7 precedence table — CONFIRMED over 4,065 cells and must not be broken |
+| `[ ]` | **E17** Road tile variants | E9 | Roads render jaggy; PZ ships corner and edge road tiles. **Inherits E9's neighbour-rule engine** — do not write a second one |
+
+### Track F — GIS pipeline port to C++. The generator ships with the app; it cannot ship in a language the app does not build.
+
+| | Chunk | Depends on | Deliverable |
+|---|---|---|---|
+| `[ ]` | **F1** Inventory and port order | — | **A document, no code.** Every Java GIS file, line count, dependencies, and a SHIPS / SURVEY / DEAD verdict |
+| `[ ]` | **F2** `Json` + `GeoJson` | F1 | Dependency-free JSON reader + GeoJSON feature model. Oracle: same file → same features, same properties |
+| `[ ]` | **F3** `FootprintSnap` + `BuildingPlan` | F1 | Pure geometry and the layout engine. Oracle: `BuildingPlan`'s own 14,680-layout self-test, ported and matching |
+| `[ ]` | **F4** Palettes | F1 | `TilePalette`, `WaterTiles`, `GroundMaterial`. Oracle: same `TileIndex` in → same tile names out |
+| `[ ]` | **F5** `GisImport` raster | F2, F3 | `Cover` grid, `fillPolygon`, `thickLine`, `waterLine`, `deriveWalls`, projection. Oracle: identical `Cover` grid compared cell by cell |
+| `[ ]` | **F6** `GisCells` writer | F4, F5 | Cells, rooms, doors, `chunkGrid`, spawn points, biome map. **Oracle: byte-identical mod output vs Java** |
+| `[ ]` | **F7** GIS window in the Qt app | F6, C3 | Menu item → window: pick GeoJSON, pick output, generate, progress, schematic preview. **This is the accessibility deliverable** — it is what a non-technical user actually touches |
+| `[ ]` | **F8** Retire or keep the Java tree | F6, F7 | **A written decision.** Once C++ generates byte-identical output, is the Java tree still the oracle, or archived? |
+
+**Why this order.** Leaves first, so every chunk stands on something already
+verified. F2 and F3 are pure functions with no PZ dependencies and the cleanest
+oracles. F5 needs both. F6 is last because it is the integration point and holds
+the strongest oracle — byte-identical mod output leaves nowhere for an
+interpretation bug to hide.
+
+**Already ported — do not re-port.** `CellData`, `LotHeader`, `LotPack`,
+`TileDefs`, `TileBin`, `PackFile`, `SpriteNames`, `TileIndex`, `Square`,
+`MapValidator`, `CellEditor`, `MapProject`, all verified byte-identical against
+Java on retail data. `GisCells` writes *through* these, so the GIS port is pure
+logic and palette selection, **not format work**.
+
+**Two traps, both recorded in STATE 2026-08-31.** `Cover` already contains
+`WATER` — do not "add" it. And `std::mt19937` will not reproduce
+`java.util.Random`; the per-cell seed and position-hash dither (§28) must be
+ported as the same LCG or F6's diff will never clear.
+
+---
 
 **E9 was the second charter §2 test, and E5 remains the first:** a GIS feature the editor needs
 regardless of who authors the tiles. E4 exists to serve it.
@@ -1162,6 +1197,103 @@ retracted (STATE §13, §19).
   size. The format work is confirmed byte-identical; publishing it is cheap
   goodwill and invites correction from people who know things we don't.
 - **D3 Licensing.** Verify GIS dataset terms per state; choose a project licence.
+
+---
+
+# Track F — prompts
+
+## F1 — Inventory and port order
+
+**Deliverable: a document. No code.**
+
+The Java GIS tree has never been inventoried. Some of it ships, some was
+scaffolding for measurements now closed, some is a survey that writes nothing.
+Porting all of it would be wrong, and porting the wrong half would be worse.
+
+For every file under `~/Documents/PZMapCreation/src/main/java/pzformat/` that
+the generation path touches, record:
+
+- line count
+- what it depends on, and what depends on it
+- **one verdict of three:** SHIPS (port it), SURVEY (read-only, taught a rule,
+  never called at generation time — do not port), DEAD (superseded)
+- for SHIPS units, the oracle that will prove the port correct
+
+```fish
+cd ~/Documents/PZMapCreation
+wc -l src/main/java/pzformat/*.java | sort -rn
+grep -l -e GisCells -e GisImport -e Probe src/main/java/pzformat/*.java
+```
+
+E13's findings put `RoomCluster`, `DoorProbe` and the `*Probe/*Analysis/*Survey`
+harnesses in the measurement bucket. STATE's editor-track inventory lists
+`RoomShapes`, `RoomMinimums`, `RoomLayout`, `HouseLayouts`, `FootprintAngles`,
+`WallCycle` as read-only surveys. Treat those as SURVEY **unless the call trace
+shows `GisCells` reaching them** — trust the trace over both lists.
+
+**Done when:** a verdict per file, and a port order naming the oracle for each
+SHIPS unit. If the trace surprises you — a survey called at generation time, or
+a shipped unit nothing reaches — that is the finding, say so.
+
+---
+
+## F5 — `GisImport` raster
+
+Port the raster: lon/lat → tile projection, `fillPolygon`, `thickLine` (roads),
+`waterLine`, `deriveWalls`, the precedence rules (buildings beat roads beat
+water beat nothing), and the schematic PNG.
+
+**`Cover` is `{NONE, WATER, ROAD, BUILDING}` in Java already.** Water shipped
+2026-08-21. Do not add it; port it.
+
+**The PNG needs image encode, which C++ std does not provide.** STATE deferred
+this for `CellRenderer` to keep the library layer dependency-free (Charter §3).
+The generator is **app layer**, so `QImage` covers it. If F5 lands before F7,
+write the raster and defer the PNG rather than pulling in `stb_image`.
+
+**Oracle:** dump the `Cover` grid from both implementations on the same GeoJSON
+and compare **cell by cell**. A count match is not enough — E8's
+scattered-diamond defect was a *distribution* bug that a total would have
+passed.
+
+**Watch for areal water.** If the water loop walks rings calling `waterLine`
+between consecutive points, it traces a perimeter rather than filling, and a
+lake comes out as a ring with dry ground inside (STATE 2026-08-31, UNVERIFIED —
+E15). Confirm which it does **before** porting the behaviour. If it is the
+perimeter bug, port the *correct* behaviour and record that C++ and Java diverge
+here deliberately — do not reproduce a defect for the sake of oracle purity, and
+do not silently fix it either.
+
+---
+
+## F6 — `GisCells` writer
+
+The integration point: cells, room rects, the door pass, `chunkGrid` zombie
+density, spawn points, biome map.
+
+**Do not regress E13's door fix.** `replaceTile` must strip the matching wall
+before adding the door. Two wall objects on one edge leaves the plain wall
+winning for collision and the door is solid in game — that was a map defect, not
+a renderer defect, and it was confirmed by `DoorProbe` before and after plus an
+in-game walk.
+
+**RNG must match or nothing will.** `GisCells` seeds `Random` per cell so a cell
+regenerates identically regardless of its neighbours, and the dither flip is
+driven by a **position hash**, not that sequential `Random` (§28). C++
+`std::mt19937` will not reproduce `java.util.Random` — port the LCG explicitly.
+
+**Oracle — the strong one.** Same GeoJSON, both implementations, diff the mod:
+
+```fish
+java -cp out pzformat.Probe giscells <args> ~/Zomboid/mods PZ_java
+./build/pz_giscells <args> ~/Zomboid/mods PZ_cpp
+diff -r ~/Zomboid/mods/PZ_java ~/Zomboid/mods/PZ_cpp
+```
+
+**Done when:** byte-identical output on the Ohio dataset **and** a Tokyo dataset.
+Two datasets because Ohio is 7 buildings and 1 linear creek; Tokyo is 59
+buildings, 17 roads and areal water, and exercises paths Ohio cannot reach.
+Not "looks the same in game."
 
 ---
 
