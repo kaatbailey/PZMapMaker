@@ -8,6 +8,28 @@ Every chunk prompt quotes §1 of this file verbatim. That is the mechanism: the
 goal is re-stated at the top of every session rather than inherited through a
 chain of summaries.
 
+- **Every number carries the command that produced it.** A figure written
+  without the command that emitted it is not a measurement, it is an
+  assertion — and it is unauditable, because a later session cannot even
+  reconstruct what was counted. If no command emits the number, either build
+  the instrument or do not write the number. The 14,680 that survived in five
+  documents for thirteen days came from no command in any version of the file.
+
+- **Numbers are cited, never copied.** A figure lives in exactly one document,
+  next to its command. Every other mention points at that place. Five
+  documents agreeing is not five confirmations — it is one claim copied four
+  times, and it reads as corroboration to the next session.
+
+- **Distinguish permanent facts from expiring ones.** "Muldraugh has 4,065
+  cells" is permanent — external, immutable data. "The self-test passes" is a
+  claim about code you are changing, and it expires at the next commit. Stamp
+  expiring claims with the commit they were measured at, and treat an unstamped
+  one as unverified.
+
+- **If a claim cannot be checked by running something, say so where it is
+  written.** A claim whose verification requires building an instrument will
+  not be checked. Mark it UNVERIFIED and name the instrument, or build it then.
+
 ---
 
 ## 1. What we are building
