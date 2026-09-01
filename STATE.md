@@ -4733,3 +4733,135 @@ thing that does.**
 
 `BuildingPlan` is the right chunk for a long uninterrupted session: it is the
 largest single unit in Track F and it stands entirely alone.
+
+---
+
+## 39. Port step 3 — `FootprintSnap` ported, and a floating-point divergence accepted (2026-08-31)
+
+Folded from `FINDINGS_F3a_2026-08-31.md`. `FootprintSnap` (299 lines) is ported
+to C++20, standard library only. Pure geometry, no RNG, no dependencies.
+
+### Results — verified on two machines, GCC 13 and GCC 16
+
+| corpus | count | Rect divergences |
+|---|---|---|
+| Fixed cases from the Java `main` | 7 | **0** |
+| Real projected footprints (Ohio + Tokyo buildings, landuse, water) | 379 | **0** |
+| Randomised polygons | 20,000 | 122 (0.61%) |
+
+- **Area arithmetic is exact.** With bit-identical inputs, `area()` bits agree on
+  all 20,000. Shoelace, `dedupeExact` and centroid arithmetic carry no
+  divergence.
+- **Convex hull is exact.** Hull vertex counts agree on all 20,000.
+
+### Two porting hazards, both predicted and both real
+
+- **`Math.round(x)` is `floor(x + 0.5)`, NOT `std::round`.** They disagree on
+  every negative half-integer — Java gives -2 for -2.5, `std::round` gives -3.
+  Footprint centroids go negative near a cell origin, so this is reachable.
+  Ported as `javaRound`. Without it the fully-negative fixed case fails.
+- **`Arrays.sort` on an object array is a STABLE mergesort; `std::sort` is
+  not.** The hull comparator ties on exact duplicate vertices, which
+  `dedupeExact` does not remove — it drops only the closing vertex.
+  `std::stable_sort` is required.
+
+Also reproduced deliberately rather than "fixed": `centroid(p, area)` ignores
+its `area` parameter (the denominator is recomputed from the *signed*
+`shoelace`), and its degenerate branch accumulates onto already-nonzero
+`cx`/`cy` instead of resetting them.
+
+### ACCEPTED DIVERGENCE — `minAreaRect` edge selection under near-ties
+
+`minAreaRect` computes `ang = atan2(dy,dx)` then `cos(-ang)` / `sin(-ang)`.
+Java's `Math.*` permits 2 ulp and does not match libm. With bit-identical
+inputs the resulting width/height differ on 2,385 of 20,000 polygons. Usually
+harmless — but when two candidate hull edges give near-equal enclosing area the
+`ar < bestArea` comparison flips and a different rectangle wins.
+
+- **Rate 0.61%.** By hull size: 2.70% at 3, 0.81% at 4, 0.17% at 5, 0% at 6+.
+- **Failure shape: the rectangle rotates 90°.** Java `[232,-5 1x10]` vs C++
+  `[227,0 10x1]` — same area, transposed.
+- **Zero occurrences on real data.** 379 real rings, no divergence.
+- **CONFIRMED DETERMINISTIC.** Reproduced exactly — 122 Rect and 2,385
+  `minAreaRect` divergences, the same lines — on GCC 13 and GCC 16, both
+  x86-64/OpenJDK 21. This is a stable, reproducible difference, not chaotic
+  noise. That is what makes it safe to accept.
+
+**OWNER DECISION 2026-08-31 — option 2: ACCEPT AND DOCUMENT.** Not fixed.
+
+**The fix exists and is verified**, should it ever be needed: `cos(-ang)` and
+`sin(-ang)` are algebraically `dx/len` and `-dy/len`, which uses only division
+and `sqrt` — both correctly rounded under IEEE 754 in each language. Tested with
+bit-identical inputs over 20,000 polygons: **bit-identical, all 20,000.**
+
+```java
+// instead of: ang = atan2(dy,dx); c = cos(-ang); s = sin(-ang);
+double dx = b[0]-a[0], dy = b[1]-a[1], len = Math.sqrt(dx*dx + dy*dy);
+if (len == 0) continue;
+double c = dx/len, s = -dy/len;
+```
+
+**It must land in BOTH trees to help** — applying it to C++ alone makes them
+more different, not less. It changes Java's output on the 0.61%, so E5's
+recorded building results would shift slightly. **Trigger for revisiting: F6
+shows an unexplained diff on real data.** That is the moment to apply it to
+both trees, not before.
+
+### CORRECTION — a cross-language oracle must not use transcendentals to build its corpus
+
+The first measurement of this divergence reported 81 Rect differences and blamed
+`minAreaRect` for all of them. **It was contaminated.** The corpus generator
+itself used `Math.cos` / `std::cos`, so the input polygons differed between
+trees *before* `FootprintSnap` ran. The tell was 33 "area bit" divergences —
+impossible for pure arithmetic on identical points — and that impossibility is
+what exposed the harness bug. Regenerated with raw `JavaRandom` draws only; the
+real figures are 122 Rect, 0 area, 0 hull.
+
+The first analysis also called the divergence triangle-only. It is not; it
+decays with hull size.
+
+**This applies to every remaining oracle in Track F: generate the corpus with
+arithmetic and `JavaRandom` only.**
+
+### Build wiring
+
+`footprintsnap.cpp` joins the `pzgen` library; `footprint_oracle` joins the
+`pzgen` `foreach` loop (the one linking `pzgen`, not the older `pzformat` one).
+`FootprintOracle.java` lives in the C++ repo root and is copied into
+`src/main/java/pzformat/` to compile.
+
+```fish
+set GJ ~/pzgis/buildings.geojson ~/pzgis/tokyo/buildings.geojson \
+       ~/pzgis/tokyo/landuse.geojson ~/pzgis/tokyo/water.geojson
+java -cp out pzformat.FootprintOracle /tmp/fp.java.txt $GJ
+~/Documents/PZMapMaker/build/pz_footprint_oracle /tmp/fp.cpp.txt $GJ
+```
+
+**Predict:** 20,386 lines each. X 0 divergent, G 0, area 0, hull 0, Rect 122,
+minAreaRect 2,385. **X=0 and G=0 is the pass condition.** Any X or G divergence
+is new information and would force the fix above.
+
+### Prep for step 4 — `BuildingPlan`, already scanned
+
+- **No `atan2`, no `cos`, no `sin` anywhere in the file.** The transcendental
+  divergence above **does not apply**. 
+- **6 `Math.round` sites** (lines 798, 860, 1309, 1383, 2317, 2327). All need
+  `javaRound`.
+- **No `HashMap`, no `HashSet`, no `Arrays.sort`, no streams.** The only map is
+  `WEIGHT`, a `LinkedHashMap` populated in a static block — insertion order is
+  the contract, so C++ must use an insertion-ordered container.
+- **Near-miss worth knowing:** `ENTRANCE` is `java.util.Set.of(...)`, whose
+  iteration order is RANDOMISED PER JVM RUN in Java 9+. It is only ever used via
+  `.contains()` (lines 108, 479, 537, 1795), never iterated, so it is safe. **If
+  a future edit iterates it, Java itself becomes nondeterministic** and no
+  oracle will ever clear.
+- 10 RNG call sites; `JavaRandom` is ported and verified.
+
+### Handoff — current as of 2026-08-31, supersedes §38's
+
+**Next is port step 4: `BuildingPlan`** — 3,347 lines, 49% of the whole port,
+zero `pzformat` dependencies, own `main` at line 2614 over 14,680 layouts. Needs
+`JavaRandom` (done) and no PZ install. Take it in a fresh session with a clean
+context window; it is the largest single unit in Track F and stands alone.
+
+**Step 5, the palettes, is the first thing that needs the PZ install.**
