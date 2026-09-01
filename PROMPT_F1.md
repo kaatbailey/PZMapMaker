@@ -86,7 +86,7 @@ chunk, and it is worth more than the table.
   `MapProject`. `GisCells` writes *through* these. The GIS port is pure logic
   and palette selection, **not format work**. Mark these as already-ported in
   the dependency column rather than listing them as work.
-- **`BuildingPlan` is a pure function with a standalone self-test over 14,680
+- **`BuildingPlan` is a pure function with a standalone self-test over ~~14,680~~
   layouts** (`java -cp out pzformat.BuildingPlan`). That test is its oracle.
 - **`GisImport` writes a schematic PNG**, which needs image encode that C++ std
   lacks. STATE deferred this for `CellRenderer` to keep the library layer
@@ -153,3 +153,18 @@ Look for a `water features:` line and a water tile count. A ring of water with
 dry ground inside confirms the defect.
 
 This is independent of F1 and can run in either order.
+
+---
+
+## CORRECTION appended 2026-09-01 — do not act on the figure above
+
+`BuildingPlan`'s self-test does **not** cover 14,680 layouts. Measured by
+instrumentation (STATE §13, §40): **1,505 `plan` calls, 2,005 `recipe` calls,
+9,456 rooms.** No quantity in any version of the file is 14,680.
+
+It also does **not pass.** Since commit `0247ddc` it reports
+`no corridor-shaped rooms  FAIL  worst 5.7  NORTH 40x20 bathroom[23,4 17x3]`
+and exits 1.
+
+This prompt is complete (F1 is `[x]`) and is kept for provenance. Per
+CHARTER §5 the wrong belief is annotated, not deleted.

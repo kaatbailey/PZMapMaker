@@ -150,3 +150,8 @@ goal away.
 |---|---|
 | 2026-08-08 | Charter created. Editor goal restored as primary after drift; GIS scoped as side project. Multi-user editing ruled out. |
 | 2026-08-21 | Language switched Java → C++20; app layer targets Qt6/OpenGL. Library stays dependency-free (std lib only); app layer may take permissive/LGPL, non-pay dependencies. Java tree (~/Documents/PZMapCreation) retained as the port oracle. Rationale: desktop UI toolkit fit (Qt = TileZed/QGIS/Qt Creator, native KDE); the performance argument was NOT measured and is not the basis. |
+| 2026-09-01 | STATE.md split: history moves to STATE_ARCHIVED.md, whole and
+| unedited, with a numbered stub left behind. Append-only still governs facts —
+| a wrong belief becomes a Corrections row, never an edit. Moving is not
+| summarising; summarising the goal away is the 2026-08-07 failure. Owner
+| decision, triggered by STATE reaching 5,096 lines. |

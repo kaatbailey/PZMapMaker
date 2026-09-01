@@ -103,10 +103,11 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked
 
 | | Chunk | Depends on | Deliverable |
 |---|---|---|---|
-| `[ ]` | **F1** Inventory and port order | — | **A document, no code.** Every Java GIS file, line count, dependencies, and a SHIPS / SURVEY / DEAD verdict |
-| `[ ]` | **F2** `Json` + `GeoJson` | F1 | Dependency-free JSON reader + GeoJSON feature model. Oracle: same file → same features, same properties |
-| `[ ]` | **F3** `FootprintSnap` + `BuildingPlan` | F1 | Pure geometry and the layout engine. Oracle: `BuildingPlan`'s own 14,680-layout self-test, ported and matching |
-| `[ ]` | **F4** Palettes | F1 | `TilePalette`, `WaterTiles`, `GroundMaterial`. Oracle: same `TileIndex` in → same tile names out |
+| `[x]` | **F1** Inventory and port order | — | **DONE 2026-08-31** (STATE §37). `F1_GIS_PORT_INVENTORY.md`: 14 units, 6,854 lines, seven-step order with a named oracle per step |
+| `[x]` | **F2** `Json` + `GeoJson` | F1 | **DONE 2026-08-31** (STATE §38). Plus the `java.util.Random` LCG as its own step. Ten datasets byte-identical; 8,000 RNG draws identical |
+| `[x]` | **F3a** `FootprintSnap` | F1 | **DONE 2026-08-31** (STATE §39). Pure geometry, no RNG. One accepted `minAreaRect` divergence, 0.61% on random polygons, 0 on real data |
+| `[x]` | **F3b** `BuildingPlan` | F1 | **DONE 2026-09-01** (STATE §40). Self-test 62 lines identical, both exit 1; `BuildingPlanOracle` digest 160,657 lines identical over 20,052 layouts; mutation-tested; GCC 13 + 16. **The old "14,680-layout self-test" figure was wrong — see STATE §13. The real count is 1,505 `plan` calls** |
+| `[ ]` | **F4** Palettes | F1, F3b | `GroundMaterial`, `TilePalette`, `GroundPalette`, `MaskRule`, and `TreePalette` **only if A2-gate has resolved**. 1,021 lines. **`WaterTiles` is NOT a port target** — zero callers, it is a survey (STATE §37). Oracle: same `TileIndex` in → identical tile-name tables out. **First step needing the PZ install** |
 | `[ ]` | **F5** `GisImport` raster | F2, F3 | `Cover` grid, `fillPolygon`, `thickLine`, `waterLine`, `deriveWalls`, projection. Oracle: identical `Cover` grid compared cell by cell |
 | `[ ]` | **F6** `GisCells` writer | F4, F5 | Cells, rooms, doors, `chunkGrid`, spawn points, biome map. **Oracle: byte-identical mod output vs Java** |
 | `[ ]` | **F7** GIS window in the Qt app | F6, C3 | Menu item → window: pick GeoJSON, pick output, generate, progress, schematic preview. **This is the accessibility deliverable** — it is what a non-technical user actually touches |

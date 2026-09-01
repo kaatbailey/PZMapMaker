@@ -48,12 +48,13 @@ add_library(pzgen STATIC
     json.cpp
     geojson.cpp
     footprintsnap.cpp
+    buildingplan.cpp
 )
 target_link_libraries(pzgen PUBLIC pzformat)
 target_include_directories(pzgen PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_compile_options(pzgen PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast)
 
-foreach(tool geojson_oracle rng_oracle footprint_oracle)
+foreach(tool geojson_oracle rng_oracle footprint_oracle buildingplan_oracle buildingplan_selftest)
     add_executable(pz_${tool} ${tool}.cpp)
     target_link_libraries(pz_${tool} PRIVATE pzgen)
     target_compile_options(pz_${tool} PRIVATE -Wall -Wextra -Wpedantic)

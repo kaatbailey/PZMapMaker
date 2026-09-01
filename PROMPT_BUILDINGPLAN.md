@@ -1,3 +1,23 @@
+> **THIS CHUNK IS COMPLETE — 2026-09-01. Do not run it again.**
+> Outcome in `FINDINGS_F3b_2026-09-01.md` and STATE §40. Kept for provenance.
+>
+> **Three things in the prompt below are wrong. They are struck through in
+> place rather than deleted, per CHARTER §5.**
+>
+> 1. **"14,680 layouts" matches nothing.** Measured: **1,505 `plan` calls,
+>    2,005 `recipe` calls, 9,456 rooms.** The 2026-08-19 version that coined
+>    the figure makes 553 `plan` calls.
+> 2. **The Java self-test FAILS**, and has since commit `0247ddc`:
+>    `no corridor-shaped rooms  FAIL  worst 5.7  NORTH 40x20 bathroom[23,4 17x3]`,
+>    exit 1. Matching Java means REPRODUCING the failure.
+> 3. **`std::round` for `javaRound` cannot fail as a mutation test.** All six
+>    sites take non-negative arguments — 116,502 calls, 0 negative, measured.
+>    A session following this prompt would mutate, see no diff, and wrongly
+>    conclude its oracle was broken.
+>
+> Also: **`WEIGHT`'s insertion order is not a contract** (lookup-only via
+> `getOrDefault`; reversing it changed nothing).
+
 # Session prompt — Port step 4: `BuildingPlan`
 
 **How to use this:** open a new session. Paste, in this order:
@@ -27,7 +47,7 @@ and are SURVEY).
 
 ## The oracle
 
-**`BuildingPlan` has its own self-test over 14,680 layouts:**
+**`BuildingPlan` has its own self-test over ~~14,680~~ 1,505 layouts, and it FAILS:**
 
 ```fish
 cd ~/Documents/PZMapCreation
@@ -85,7 +105,7 @@ suspect the harness before the port.
 Charter §4 applies.
 
 **Predict before running.** Before writing the oracle, write down: how many of
-the 14,680 self-test layouts you expect to match on the first run, and which
+the ~~14,680~~ 1,505 self-test layouts you expect to match on the first run, and which
 construct you expect to break first. If the prediction is "all of them", say
 what would falsify that.
 
@@ -101,7 +121,8 @@ and near the top; get those matching before `plan` and `hubLayout`.
 
 ## Definition of done
 
-- The ported self-test matches Java over all 14,680 layouts.
+- The ported self-test matches Java over all ~~14,680~~ 1,505 layouts —
+  **including Java's FAIL line and its exit code 1.**
 - A `BuildingPlanOracle` digest is byte-identical across trees on a randomised
   corpus of at least 10,000 layouts.
 - The oracle has been mutation-tested.
