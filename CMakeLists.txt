@@ -40,7 +40,23 @@ target_include_directories(pzformat PUBLIC
 target_compile_options(pzformat PRIVATE
     -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast
 )
+# GIS layer: pzgen  (Qt-free, dependency-free; Track F)
+# Application layer per Charter §2. Kept out of pzformat so the format/semantic
+# library does not accrete GIS code. Named pzgen, not pzgis, to avoid colliding
+# with the pzgis data repo and ~/pzgis.
+add_library(pzgen STATIC
+    json.cpp
+    geojson.cpp
+)
+target_link_libraries(pzgen PUBLIC pzformat)
+target_include_directories(pzgen PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_compile_options(pzgen PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast)
 
+foreach(tool geojson_oracle rng_oracle)
+    add_executable(pz_${tool} ${tool}.cpp)
+    target_link_libraries(pz_${tool} PRIVATE pzgen)
+    target_compile_options(pz_${tool} PRIVATE -Wall -Wextra -Wpedantic)
+endforeach()
 # ---------------------------------------------------------------------------
 # Tests + oracles  (library-layer, no Qt)
 # ---------------------------------------------------------------------------
