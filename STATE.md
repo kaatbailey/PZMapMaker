@@ -4382,3 +4382,354 @@ java -Xmx4g -cp out pzformat.Probe render "$GISMAP" "$PZ/media/texturepacks" \
   is **app layer**, Qt's `QImage` covers it and Charter §3 is unaffected.
 - **Water and Japan both work in Java today.** Generating Tokyo does not wait on
   the port.
+
+---
+
+## 37. F1 — the GIS port inventory, from a call trace (2026-08-31)
+
+*Numbering note: there is no `## 36.` heading in this document — numbered
+sections stop at 35 and everything after is unnumbered `###` blocks. But §36 is
+referenced in the 2026-08-31 GIS section as carrying E13. Numbering this 37
+rather than filling the gap, so that existing reference is not silently
+redirected to a section about something else. Owner's call to reconcile.*
+
+Folded from `FINDINGS_F1_2026-08-31.md`. Deliverable is
+`F1_GIS_PORT_INVENTORY.md` in the C++ repo root: full table, three verdicts,
+seven-step port order with a named oracle per step.
+
+**Method.** Static call graph over all 65 files in `src/main/java/pzformat/`
+(`PZMapCreation` @ `0247ddc`): comments and string literals stripped, class
+names matched at word boundaries, transitive reachability computed from
+`GisCells` — the target of `Probe.java:29`. Verdicts came from the trace, not
+from STATE's editor-track inventory or E13's findings. Both lists were checked
+against it afterwards.
+
+### The shape of the port — CONFIRMED
+
+24 files are reachable from `GisCells`. Ten are the already-ported format layer.
+**14 units, 6,854 lines, are the GIS port.**
+
+| unit | lines | unit | lines |
+|---|---|---|---|
+| `BuildingPlan` | 3,347 | `TreeScatter` | 210 |
+| `GisCells` | 864 | `GroundPalette` | 206 |
+| `GisImport` | 491 | `BiomeMapWriter` | 132 |
+| `TilePalette` | 324 | `TreePalette` | 120 |
+| `GroundRegions` | 308 | `Json` | 117 |
+| `FootprintSnap` | 299 | `GroundMaterial` | 114 |
+| `MaskRule` | 257 | `GeoJson` | 65 |
+
+- **`BuildingPlan` has zero `pzformat` dependencies** and is 49% of the port's
+  lines. It ports in parallel with everything else, against its own
+  14,680-layout self-test.
+- **No Lua parsing is needed.** `WorldGenBiomes` and `WorldGenFeatures` are
+  reached only by `BiomePalette`, which has zero callers. All three SURVEY.
+  This was F1's largest open cost question and it resolved the cheap way.
+- **Six SHIPS units draw `java.util.Random`**, not one: `GisCells`,
+  `GroundRegions`, `MaskRule`, `TreeScatter`, `GroundPalette`, `BuildingPlan`.
+  The LCG is therefore its own port step, ahead of everything that draws.
+- **No map-iteration-order hazard.** `GisCells` uses `LinkedHashMap` for
+  `shared`; the one `HashSet` (`doorAt`, line 670) is membership-only.
+- **The schematic PNG is not on the generation path.** `GisCells:48` calls
+  `GisImport.rasterise`, not `run`. `java.awt` / `ImageIO` are reached only from
+  `run`, which is the `Probe gisimport` diagnostic. F5 ports `rasterise`
+  dependency-free. PNG encode is still needed once, for `BiomeMapWriter`.
+- **E15's premise, by inspection.** `GisImport.java:150–157` walks each ring
+  calling `waterLine` between consecutive points — a perimeter trace, no fill.
+
+### CORRECTION — `WaterTiles` is a survey, not a port target
+
+CHUNKS F4 lists it as one of three units to port. It has a `main`, takes a
+`MEDIA_DIR`, prints tiles whose name or properties contain "water", and has
+**zero callers** — `grep -l WaterTiles *.java` returns only itself. The shipped
+water path is `GisImport.Cover.WATER` + `waterLine()` (line 416) with the tile
+name resolved through `TilePalette`. The file that taught the rule is not the
+file that applies it.
+
+### CORRECTION — `GisCells` does not write through `CellEditor` or `Square`
+
+STATE's 2026-08-31 "what the next chunk needs to know" lists `Square`,
+`CellEditor` and `MapProject` among what `GisCells` writes through. The trace
+shows `CellEditor`'s only callers are `EditDemo` and `RoomGeometry`; `Square`'s
+are `CellData`, `CellEditor`, `EditDemo`, `PropsProbe`. `GisCells` manipulates
+`CellData` directly through its own helpers (`appendTile:827`,
+`replaceTile:790`).
+
+**Consequence for F7, and it is not small:** the generator bypasses the
+undo-capable edit layer entirely. A generated map cannot be undone in the
+editor, so "generate into the open project" is different work from "generate to
+disk", and F7 must say which it is.
+
+### CORRECTION — there is no `fillPolygon`, so E15 is not small
+
+CHUNKS E15 says areal water fill is "small if `fillPolygon` is reusable —
+buildings already use it." Buildings do not use it. Buildings go through
+`FootprintSnap.Rect` — snapped to rectangles (E5, §31) — and there is no
+scanline fill anywhere in `GisImport`. E15 needs one written from scratch.
+
+### CORRECTION — `writeWorldGenOverride` was never deleted
+
+A2b is marked `✅ CONFIRMED INERT 2026-08-11` and §3 item 2 says to delete it.
+It is still called at `GisCells.java:371`. Inert in game, still written to disk,
+and it will appear in F6's byte-identical diff. Either delete it in Java first
+or exclude `WorldGenOverride.lua` from the diff and say so.
+
+### CORRECTION — §6's Java file inventory is badly stale
+
+§6 lists roughly 35 files; **65 exist**. Missing entirely: `BuildingPlan` (the
+largest file in the project), `GroundRegions`, `GroundMaterial`, `MaskRule`,
+`MaskAudit`, `FootprintSnap`, `GeoJson`, `WaterTiles`, `DitherLaw`,
+`HouseRules`, `HallRule`, `RoomLayout`, `RoomMinimums`, `RoomShapes`,
+`HouseLayouts`, `RoomCluster`, `DoorProbe`, `GroundCensus`,
+`ChunkDataAnalysis`, `Locate`. §6 does say "refresh the real list with `find`" —
+that instruction is load-bearing and the list should carry a date.
+
+### Confirmation, not correction — the survey lists were right
+
+STATE's editor-track survey list and E13's findings both put `RoomLayout`,
+`RoomMinimums`, `RoomCluster` and `DoorProbe` in the survey bucket. **The trace
+agrees.** `HouseRules`, `HallRule`, `DitherLaw` and `HouseLayouts` join them;
+all have zero callers and a `main`. E13's layout engine was inlined into
+`BuildingPlan`.
+
+### The port order
+
+Leaves first. Steps 1–2 are DONE (§38).
+
+| step | units | lines | oracle |
+|---|---|---|---|
+| 1 ✅ | `Json`, `GeoJson` | 182 | same file → same features, properties, ring order |
+| 2 ✅ | the LCG (`java.util.Random`) | ~86 | fixed seed, 10⁶ draws match |
+| 3 | `FootprintSnap` | 299 | its own `main`, line 256. Pure geometry, no RNG |
+| 4 | `BuildingPlan` | 3,347 | its own `main`, line 2614, 14,680 layouts |
+| 5 | `GroundMaterial`, `TilePalette`, `TreePalette`, `GroundPalette`, `MaskRule` | 1,021 | same `TileIndex` in → identical tile-name tables out. **First step needing a PZ media dir** |
+| 6 | `GisImport` (`rasterise`), `GroundRegions` | 799 | identical `Cover` grid, cell by cell |
+| 7 | `TreeScatter`, `BiomeMapWriter`, `GisCells` | 1,206 | **byte-identical mod output**, Ohio and Tokyo |
+
+**CHUNKS Track F needs amending to match:** F4 drops `WaterTiles` and gains
+`TreePalette`, `GroundPalette`, `MaskRule`, `GroundMaterial`; F5 gains
+`GroundRegions`; F6 gains `TreeScatter` and `BiomeMapWriter`.
+
+### OPEN
+
+- **`TreeScatter` / `TreePalette` — port or delete?** The trace says SHIPS: both
+  are called by `GisCells`, `TreeScatter` also by `BiomeMapWriter`. But A2a is
+  BLOCKED on A2-gate and §3 says `genMapSquare` deletes ~7,800 of these trees on
+  load. Porting 330 lines that may be dead is the wrong order. **Resolve
+  A2-gate before step 7** — same argument as E15-before-F5.
+- **Byte-identical PNG for `biomemap_X_Y.png`.** Qt `QImage` may not reproduce
+  Java `ImageIO` byte-for-byte (colour type, bit depth, filter, zlib level).
+  Test: encode the same pixel buffer through both and `cmp`. If it fails, step
+  7's oracle compares decoded pixels, not file bytes — and that weakening should
+  be recorded rather than discovered.
+
+---
+
+## 38. F2 + the LCG — first two port steps DONE and verified (2026-08-31)
+
+Folded from `FINDINGS_F2_2026-08-31.md`. `Json`, `GeoJson` and
+`java.util.Random` are ported to C++20, standard library only, and verified
+against the Java tree.
+
+### Verified three ways
+
+| what | result |
+|---|---|
+| 10 GeoJSON datasets, Ohio + Tokyo | **byte-identical digests**, 15,000+ lines |
+| RNG: 8 seeds × 5 generators × 200 draws | **8,000 identical** |
+| Reproduced on the owner's machine, GCC 16.2.1 | all line counts matched the prediction exactly |
+| Configured with `-DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON` | both oracles still build — the GIS layer is Qt-free |
+
+Predicted digest line counts, for re-running later: area 6, buildings 294,
+roads 219, water 66, tokyo 6, tokyo/buildings 3,701, tokyo/landuse 1,330,
+tokyo/rivers 133, tokyo/roads 9,198, tokyo/water 1,302. A count mismatch is a
+parse difference; a count match with `cmp` failing is a value difference.
+
+### Both oracles were mutation-tested, not trusted
+
+Charter §4: a test that cannot fail proves nothing.
+
+- Replacing `javaDoubleToString` with `std::to_string` → immediate diff on
+  `SQMETERS` / `SQFEET`.
+- Replacing `nextInt(bound)` with the naive `next(31) % bound` → **1,575
+  divergences out of 8,000**, with the `nextInt(64)` rows diverging from draw
+  zero. **The power-of-two branch and the rejection loop are the whole risk in
+  the LCG.** `nextDouble`, `nextLong` and `nextBoolean` are mechanical; a naive
+  `nextInt` looks correct in isolation and diverges only on some seeds.
+
+### Behaviours that had to be ported deliberately — CONFIRMED
+
+- **`Json.asText()` has two numeric branches.** Integral doubles go through
+  `(long)`, non-integral through Java's `Double.toString` — shortest
+  round-trip, E-notation outside 1e-3 … 1e7, always a digit either side of the
+  point. C++ has neither by default.
+- **Java's `\u` escape path is exercised 675 times** across the real files.
+  Java appends a UTF-16 code unit; the port decodes surrogate pairs and emits
+  UTF-8. Verified against 日本語, 😀 (supplementary plane) and （）.
+- **Duplicate JSON keys replace in place, keeping original position**
+  (`LinkedHashMap.put`). Verified with `"dup":1,"dup":2` → `2` at position 1.
+- **`Character.isWhitespace` includes 0x1C–0x1F**, which C's `isspace` does not.
+- **Object key order is insertion order.** `GeoJson.props` depends on it; a
+  `std::map` would silently reorder every property digest.
+
+### KNOWN BOUNDED DIVERGENCE — measured, characterised, accepted
+
+`javaDoubleToString` disagrees with Java on exactly the **twenty smallest
+positive subnormal doubles** — raw bit patterns `0x1`–`0x14`, values 4.9E-324
+through 9.9E-323. Java's legacy `FloatingDecimal` emits a two-significant-digit
+form; `std::to_chars` emits the true shortest. Both parse back to identical bits.
+
+- **Zero mismatches** over 1,048,293 random non-integral doubles spanning the
+  full bit range; 8 of 3,000 across the subnormal sweep, all inside bits 1–20.
+- **Unreachable from GeoJSON.** Smallest nonzero magnitude in the corpus is
+  1.304. A property value would have to literally be 4.9e-324.
+- Fixing it means porting Java's `FloatingDecimal`, which is large. Recorded
+  rather than fixed. **Do not rediscover this as a mystery.**
+
+### The oracle harness family — three patterns, not one
+
+Reading the six `*Oracle.java` harnesses showed they are not one convention:
+
+- **Pattern A — byte comparison.** `Oracle`, `TileOracle`, `PackOracle`,
+  `CellOracle`. Emit a deliberately awkward synthetic artifact from one tree,
+  read and re-encode in the other, compare bytes. Works because a
+  lotheader/tdef/pack *is* bytes.
+- **Pattern B — canonical text digest.** `ClassifyOracle` only. Sorted key set,
+  one tab-separated line per entity, fixed field order, booleans folded into a
+  bitfield, `-` for absent. **This is the template for everything in Track F**,
+  because `Cover` grids, layouts and palette tables are not bytes.
+- **Pattern C — scripted ops over a degenerate input.** `EditOracle`. Uses an
+  *empty* `TileIndex` so nothing classifies and no branch can legitimately
+  differ, runs a fixed op script, compares final bytes. **The model for steps 3
+  and 4**: fixed input, fixed seed, serialise the result as a Pattern B digest.
+
+`GeoJsonOracle` departs from Pattern B twice, deliberately: it does **not sort**
+(feature order is the contract — `GisImport.buildings` is "in import order" and
+per-building seeding indexes into it), and it emits **coordinates as raw bits**
+(`%016x`), because comparing formatted coordinates would test two printf
+implementations rather than two parsers.
+
+### CORRECTION — the UTF-16 vs UTF-8 collation hazard is LATENT, not active
+
+An earlier note in this session warned that Java's `String.compareTo` (UTF-16
+code units) and C++ `std::sort` on `std::string` (UTF-8 bytes) diverge, and that
+this threatened the GIS oracles. Measured across every real file: **zero
+supplementary-plane characters**, and only two characters ≥ U+E000 (fullwidth
+parens U+FF08/09). The divergence requires a surrogate pair to trigger, so it
+cannot bite on this data. The digest is unsorted anyway, which removes it
+permanently. Recorded as measured-and-bounded rather than deleted.
+
+### CORRECTION — for F2, Ohio is the harder dataset, not Tokyo
+
+Tokyo's OSM properties are **100% strings**. Ohio carries the only non-integral
+doubles in the corpus: `LONGITUDE -83.63682085642414`, `SQFEET 1371.503`,
+`SQMETERS 179.8132`, `lengthkm 1.304`. F6's "two datasets" rule holds for F2
+too, for the opposite reason to the one stated there.
+
+### CORRECTION — `VERIFY.md` §2 carries a belief this document corrected
+
+`VERIFY.md` tells the reader to predict that `SPAN_LEVELS_MINIMAL` reproduces
+every chunk. STATE's own correction records the opposite: the full-dataset
+round-trip proved **`SPAN_LEVELS_FULL`**, 4,162,560/4,162,560 chunks, with
+MINIMAL scoring 76%. A session following `VERIFY.md` would predict wrong, see
+the "wrong" answer, and hunt a port bug that does not exist — in the one
+document whose job is telling you what to expect. `VERIFY.md` §1 also references
+`tools/Oracle.java`; there is no `tools/` directory, the Java oracles are in the
+C++ repo root.
+
+### Where the files live, and the layer decision
+
+C++ repo root, flat, matching the existing convention. `json.hpp/.cpp`,
+`geojson.hpp/.cpp`, `java_random.hpp` (header-only), `geojson_oracle.cpp`,
+`rng_oracle.cpp`, plus `GeoJsonOracle.java` and `RngOracle.java` alongside
+`Oracle.java` and the rest. The two `.java` files are **copied** into
+`src/main/java/pzformat/` in the Java tree to compile.
+
+**New CMake target `pzgen`**, not added to `pzformat`. Both sources compile
+clean under the library's strict flags (`-Wshadow -Wold-style-cast`), so they
+*could* have gone in `pzformat` — but Charter §2 puts the generator in the
+application layer, and F5/F6 will stack `gisimport.cpp`, `giscells.cpp`, the
+palettes and `groundregions.cpp` behind them. A separate target keeps the layer
+boundary visible in the build file rather than only in the charter. Named
+`pzgen`, **not** `pzgis`, to avoid colliding with the `pzgis` data repo and
+`~/pzgis`.
+
+`pzgen` must sit **after `pzformat` and before `find_package(Qt6)`** — it landed
+inside `if(Qt6_FOUND)` first, which built fine only because Qt6 was installed.
+The falsifier is `cmake -B /tmp/noqt -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON`
+followed by building both oracle targets.
+
+### Gotchas that cost time this session
+
+- **A committed file landed EMPTY.** `GeoJsonOracle.java` was pushed at 0 lines.
+  §"Build/run notes" already warns that dropped files sometimes land empty and
+  to `wc -l` before building — it happened again, and this time reached a
+  commit. An empty *oracle* fails in the worst direction: a later session finds
+  no Java side, assumes it was never written, and rebuilds it differently.
+  Guard: `find ~/Documents/PZMapMaker -maxdepth 1 -size 0 -not -path '*/.git/*'`
+- **Files authored off-machine carry future timestamps.** Breaks Ninja
+  ("manifest still dirty"). `touch` them after copying, before building. It does
+  **not** affect `git add` — git tracks content, not mtime.
+- **ugrep is POSIX-strict.** `grep -q "add_library(pzgen"` fails with
+  "mismatched (" because the paren opens a regex group. Use `grep -F`. This is a
+  second face of the GREP RULE already in CHUNKS.
+- **The digest format needed control-character escaping.** The first version let
+  a property value containing a tab or newline split across lines. Both sides
+  corrupted identically so the diff still *passed* while comparing the wrong
+  columns. OSM `description` tags do carry newlines. Fixed in both oracles.
+  **`ClassifyOracle` has the same latent defect** if any tile `CustomName` ever
+  contains a tab.
+
+### Commands
+
+```fish
+cd ~/Documents/PZMapMaker
+cmake -S . -B build -G Ninja; and cmake --build build
+
+cd ~/Documents/PZMapCreation
+javac -d out src/main/java/pzformat/Json.java src/main/java/pzformat/GeoJson.java \
+             src/main/java/pzformat/GeoJsonOracle.java src/main/java/pzformat/RngOracle.java
+
+# RNG — predict 8000 identical lines
+java -cp out pzformat.RngOracle /tmp/rng.java.txt
+~/Documents/PZMapMaker/build/pz_rng_oracle /tmp/rng.cpp.txt
+cmp /tmp/rng.java.txt /tmp/rng.cpp.txt; and echo "RNG IDENTICAL"
+
+# GeoJSON — predict byte-identical on all ten
+for f in ~/pzgis/*.geojson ~/pzgis/tokyo/*.geojson
+    set n (basename $f .geojson)
+    java -cp out pzformat.GeoJsonOracle $f /tmp/$n.java.txt >/dev/null
+    ~/Documents/PZMapMaker/build/pz_geojson_oracle $f /tmp/$n.cpp.txt >/dev/null
+    cmp -s /tmp/$n.java.txt /tmp/$n.cpp.txt; and echo "  OK   $n"; or echo "  DIFF $n"
+end
+
+# The falsifier: the GIS layer must build without Qt
+cmake -S . -B /tmp/noqt -G Ninja -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON
+cmake --build /tmp/noqt --target pz_geojson_oracle pz_rng_oracle
+```
+
+### OPEN
+
+- **`strtod` vs `Double.parseDouble`.** Agreed on all 15,000+ coordinates
+  (compared as raw bits) and 1,048,293 random doubles, but they are not
+  *specified* to agree on hex-float or arbitrarily long decimal literals. Test:
+  a generated file of pathological numeric literals through both.
+- **Malformed input.** Both parsers are deliberately trusting and will walk off
+  the end. Neither was tested there because neither is specified. Test:
+  truncated and corrupt GeoJSON — then decide whether matching the crash matters
+  or whether C++ should validate.
+- `tokyo/` contains both `rivers.geojson` and `water.geojson`. `GisImport`
+  auto-discovers only `water.geojson`, so `rivers.geojson` appears unread.
+  Worth one line in E15.
+
+### Handoff — current as of 2026-08-31, supersedes §36's
+
+**Next is port step 3: `FootprintSnap`** — 299 lines, zero dependencies, own
+`main` at line 256, pure geometry with no RNG. **Then step 4: `BuildingPlan`** —
+3,347 lines, 49% of the whole port, zero dependencies, own `main` at line 2614
+over 14,680 layouts. Both are unblocked; the LCG they need is ported and
+verified. Neither needs a PZ install — **step 5, the palettes, is the first
+thing that does.**
+
+`BuildingPlan` is the right chunk for a long uninterrupted session: it is the
+largest single unit in Track F and it stands entirely alone.
