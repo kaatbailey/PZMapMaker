@@ -992,6 +992,16 @@ Acting on any of these wastes real time.
 | `BuildingPlan.WEIGHT`'s insertion order is a behavioural contract | **FALSE.** It is read only through `getOrDefault` (lines 1311, 2536, 2555); nothing iterates it. Reversing the C++ table left a 160,657-line digest byte-identical, so `std::unordered_map` would in fact be safe today. An insertion-ordered container was used anyway — the claim becomes true the moment anyone adds an iteration, and it costs nothing. The instruction in §39 was right for the wrong reason (§40). |
 | `std::round` for `javaRound` is the mutation test for `BuildingPlan` | **FALSE — it cannot fail.** All six `Math.round` sites take provably non-negative arguments: instrumented and measured over the full corpus at **116,502 calls, 0 negative**. Every rounded expression is a function of `w`, `h` and a non-negative fraction; none involves `x` or `y`. A session following `PROMPT_BUILDINGPLAN` would mutate, see no diff, and wrongly conclude its oracle was broken (§40). |
 | The two `STATE.md` copies have diverged (§37) | **FALSE — one is a strict subset of the other.** `diff` returns **zero** lines unique to the `PZMapCreation` copy: it is a stale snapshot frozen at §35, 3,344 lines against 4,867. §37's supporting figure was also wrong — water mentions are **38 vs 2**, not 7 vs 8. Not a divergence, a stale copy; no merge is required, only a pointer (§40). |
+| `MaskRule`'s self-test passes 8/8 (§29, repeated verbatim in `PROMPT_PALETTES.md`) | **STALE, not wrong.** §29 described the file before the fix. At `022d938` it prints **15 lines, `9 / 9 cases pass`, exit 0** — a direction-vector block (`MaskRule.java:147–166`) was added in response to the N/W transposition and counts as the ninth case. It prints **12 detail lines against 9 counted cases**, so a port emitting `12 / 12` has diverged. **Consequence for the port: unlike `BuildingPlan` (§40), Java SUCCEEDS here, so the port must exit 0.** §29's substantive warning — a green run is not evidence — is unchanged (§41). |
+| `GroundMaterial` and `GroundPalette` are the two dependency-free units to port first (`PROMPT_PALETTES.md`) | **FALSE.** `javac` on each file alone: `GroundMaterial` and `MaskRule` compile with zero dependencies; `GroundPalette`, `TilePalette` and `TreePalette` all fail on `symbol: class TileIndex`. The two independent units are `GroundMaterial` and `MaskRule` (§41). |
+| Port step 5 cannot run its oracle without a PZ media dir (§37, §40 handoff, `PROMPT_PALETTES.md`) | **HALF TRUE, and the false half unblocked most of the chunk.** `TileIndex` has an implicit public no-arg constructor and a public `byName` (`TileIndex.java:20`); `TileDefs.Tile` has public fields and a default ctor; C++ `TileIndex::add` is public. A synthetic `TileIndex` runs `TilePalette.pick` with no game files. The install gates only the **vanilla leg**; 25 of 28 mutations were caught by synthetic data alone (§41). |
+| The `byName` HashMap ordering may reach the palette digest | **FALSE for the four ported units — traced, then PROVEN by mutation.** `TilePalette:223` sorts `hits` before `get(0)`; `:238` iterates a `TreeSet`; `props` is a `LinkedHashMap` (`TileDefs.java:49`) and the C++ `PropMap` is already insertion-ordered. Option 1 taken. Removing either sort makes `std::unordered_map` order reach the output — 9,302 and 8,767 divergent lines — so the decision was correct *because of those constructs*, not by luck. **`TreePalette:51` is the only raw consumer; the hazard is LIVE at step 7**, with `TreeScatter:116` and `GisCells:123` downstream (§41). |
+| The PZ media path is `.../common/ProjectZomboid/media` (`PROMPT_PALETTES.md` install check) | **FALSE — there is an extra `projectzomboid/` level**, and **this document already had it right** at the "Path reference" block in §36. Fix the prompt, not STATE. Note also that `ls $MEDIA/texturepacks \| wc -l` prints **0** for a *missing* directory (`ls` writes to stderr, `wc` counts empty stdin), so missing and empty are indistinguishable that way — use `test -d` and fish's `count` (§41). |
+| Chunk step 5's corpus should exercise `tilesNear()` falling through all eight distance steps (`PROMPT_PALETTES.md`) | **FALSE — `tilesNear` is in no unit of this chunk.** It is `TreePalette.java:86`, called from `TreeScatter.java:111` — the unit DEFERRED on the A2-gate. A session hunting that branch would find none and could wrongly conclude its corpus was weak. The prompt's other three named failure paths are all reached (§41). |
+| `TilePalette`'s class comment: 45,028 tiles have pixels | **STALE — 46,540 measured 2026-09-01** on the vanilla install, both trees agreeing. `spritenames.hpp` predicted the count would rise "well above 45,028" after the legacy-layout fix; it rose by 1,512. The companion figure, **61,418 tiles carrying properties, is confirmed exactly**. Both are EXPIRING and move when the game updates (§41). |
+| `pzformat/` holds 65 `.java` files (§37) | **75 at `022d938`, and §37's trace is unaffected.** `comm -13` against `0247ddc` shows all ten additions are `*Oracle.java`; no production unit appeared. Distinct from §6's staleness, which §37 already recorded (§41). |
+| `GeoJsonOracle.java` is committed at 0 lines (`PROMPT_PALETTES.md` gotcha) | **FIXED — 91 lines at `022d938`.** All ten oracles have content; smallest is 26. Keep the `wc -l` rule, drop the live example (§41). |
+| A session can rely on rediscovering environment gotchas as it hits them | **FALSE, and it cost most of a session on 2026-09-01.** The fish/ugrep aliasing, the future-mtime/Ninja failure (including `touch CMakeLists.txt` by name), and the correct PZ install path were **all already written** in §36's "Path reference" and "Build/run notes" blocks. A session that had read them would have avoided roughly a dozen round trips. **Read §36's convention blocks at session start, before running anything** (§41). |
 
 Known-stale, not yet cleaned up: `TreeScatter` / `TreePalette` still place
 ~7,800 trees the engine deletes; `WorldGenOverride.lua` is still written and is
@@ -3985,6 +3995,12 @@ lifecycle.
   after F6 or the oracle breaks.
 - **Fourteen dead symbols** await a cleanup chunk in both trees at once.
 
+> **SUPERSEDED by §41 on 2026-09-01.** Step 5 is done — four of its five units
+> are ported and verified. The header and text below are left exactly as
+> written, per CHARTER §5: this note is an addition, not an edit. The claim
+> that step 5 "is the first step that needs the PZ install" is corrected in the
+> §13 Corrections table — only its vanilla leg needs one.
+
 ### Handoff — current as of 2026-09-01, supersedes §39's
 
 **Next is port step 5: the palettes** — `GroundMaterial`, `TilePalette`,
@@ -3996,3 +4012,70 @@ Note the OPEN carried from §37: **`TreeScatter` / `TreePalette` — port or
 delete?** A2-gate should resolve before `TreePalette` is ported, on the same
 argument as E15-before-F5. If A2-gate is still open, port the other four and
 leave `TreePalette` for step 7.
+
+
+## §41 — Track F port step 5, the palettes (F4). COMPLETE 2026-09-01.
+
+Four units ported to C++20: GroundMaterial, MaskRule, GroundPalette,
+TilePalette. TreePalette DEFERRED — the A2-gate (§25) is still open.
+
+Verified byte-identical against the Java oracle on two machines, two compilers
+(g++ 13.3.0, g++ 16.2.1) and javac 21.0.12:
+
+  synthetic  429,257 lines  md5 d28516268cdaae203275e778b2176563  5,000 cases/unit
+  vanilla     20,036 lines  md5 ad3a18c5875bf2b908f826fc39a3e769
+  MaskRule self-test  15 lines, "9 / 9 cases pass", exit 0, diff clean
+
+Vanilla input fingerprints, identical both sides, EXPIRING (stamped at the
+install present 2026-09-01):
+  VIN tiles    61418  86b986b908770eb6
+  VIN sprites  46540  dc390940e1767aab
+
+byName ordering decision: OPTION 1 — the order never reaches the digest for the
+ported subset. Proven, not assumed: TilePalette:223 sorts hits before get(0),
+:238 iterates a TreeSet, and removing either makes unordered_map order reach
+the output (9,302 and 8,767 divergent lines). TreePalette:51 is the only raw
+consumer and is deferred. The hazard becomes LIVE at step 7.
+
+28 mutations, 25 caught. The three no-diff results were each adjudicated
+separately rather than lumped together, and they came out differently:
+M7 proven semantically NULL (14 distinct floorMaterial keys, so scan direction
+cannot matter); M16 only MEASURED unreachable, 0 exact ties in 1.4M
+comparisons, recorded as the weaker claim it is; M20 was an ORACLE HOLE, not a
+null mutation — the digest recorded only that a case threw, never the message,
+so a mutation changing which tiles get reported passed clean. Fixed, then
+caught 1,769 lines.
+
+**The lesson worth carrying forward: byte-identical agreement is evidence about
+the code only to the extent the corpus reaches it.** The corpus was rebuilt
+three times in this chunk and every bad version produced a clean digest — the
+GroundPalette corpus reached ZERO three-group and ZERO empty-tuft cases; the
+first TilePalette corpus reached ZERO complete palettes. All green.
+
+A real segfault was found in the port (two calls to `names()` giving two
+temporaries, `begin()` from one and `end()` from the other) on the
+`TilePalette:238` TreeSet fallback — a path no healthy install ever takes.
+Only the corpus mode that empties every prefix reaches it. A vanilla-only
+oracle would have been byte-identical and shipped the crash.
+
+Two semantic observations on vanilla data, neither a port divergence:
+`discoverSkins` skin 4 is labelled `house_low_01` but takes both door tiles
+from `house_01`, because `SKIN_PREFIXES`' last entry falls back to the broad
+`walls_exterior_` and `house_low_01` ships no doors — UNVERIFIED in game, and
+a low wall with a full-height door will render wrong. And `droppedNoSprite`
+reads **0** on the real install despite 14,878 propertied-but-spriteless tiles,
+because `first()` returns at the earliest prefix with a hit and never reaches
+the sheets where they live.
+
+Full detail, the mutation tables, the segfault trace, the three corpus rebuilds
+and the vanilla observations live in FINDINGS_F4_2026-09-01.md in the
+PZMapMaker repo root. Numbers are cited there, not copied here (CHARTER §4).
+
+**OPEN from this chunk:** `VERIFY.md` §4 not yet updated with
+`pz_palettes_oracle` and `pz_maskrule_selftest`. `TreePalette` and
+`TreeScatter` still await the A2-gate — that is step 7, and the `byName`
+ordering hazard becomes live there.
+
+**Next is port step 6** — `GisImport` raster: `Cover` grid, `fillPolygon`,
+`thickLine`, `waterLine`, `deriveWalls`, projection. Oracle: identical `Cover`
+grid compared cell by cell. CHUNKS F5; depends on this chunk plus F2.
