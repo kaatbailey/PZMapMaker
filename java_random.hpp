@@ -51,8 +51,26 @@ public:
             return static_cast<std::int32_t>(
                 (static_cast<std::int64_t>(bound) * static_cast<std::int64_t>(r)) >> 31);
         }
-        for (std::int32_t u = r; u - (r = u % bound) + m < 0; u = next(31)) {
-            // Reject and redraw on overflow, exactly as Java does.
+        // THE REJECTION LOOP. Java's condition is `u - (r = u % bound) + m < 0`,
+        // which is true ONLY when the addition overflows int — the overflow IS
+        // the test. Java defines that as two's-complement wraparound.
+        //
+        // Transcribing it directly into C++ is UNDEFINED BEHAVIOUR, and at -O2
+        // GCC proves u - r + m >= 0 from u >= r >= 0, m >= 0 and DELETES THE
+        // CHECK, so the loop never rejects. Measured: -O0 matches java.util.Random,
+        // -O2 diverges on 6 of 20,000 seeds for bound 720000, -O2 -fwrapv matches.
+        // See FINDINGS F5. Do not "simplify" this back.
+        //
+        // The arithmetic is therefore done in uint32_t, where wraparound is
+        // defined, and converted back — well-defined in C++20's two's-complement
+        // model. -fwrapv would also work but would hide the hazard behind a flag
+        // that a future build could drop.
+        for (std::int32_t u = r; ; u = next(31)) {
+            r = u % bound;
+            const std::uint32_t wrapped = static_cast<std::uint32_t>(u)
+                                        - static_cast<std::uint32_t>(r)
+                                        + static_cast<std::uint32_t>(m);
+            if (static_cast<std::int32_t>(wrapped) >= 0) break;
         }
         return r;
     }
