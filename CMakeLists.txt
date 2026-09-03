@@ -44,6 +44,18 @@ target_compile_options(pzformat PRIVATE
 # Application layer per Charter §2. Kept out of pzformat so the format/semantic
 # library does not accrete GIS code. Named pzgen, not pzgis, to avoid colliding
 # with the pzgis data repo and ~/pzgis.
+# pzpng — PNG encoding, the ONLY target that links zlib.
+#
+# Separate from pzgen on purpose (owner decision 2026-09-02): pzgen is
+# dependency-free and stays that way, on the same reasoning that put pzgen
+# beside pzformat rather than inside it. Must not pull in Qt — pzgen building
+# with no Qt at all is a standing falsifier, VERIFY.md §4.
+find_package(ZLIB REQUIRED)
+add_library(pzpng STATIC pzpng.cpp)
+target_link_libraries(pzpng PUBLIC ZLIB::ZLIB)
+target_include_directories(pzpng PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
+target_compile_options(pzpng PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast)
+
 add_library(pzgen STATIC
     json.cpp
     geojson.cpp
@@ -57,14 +69,15 @@ add_library(pzgen STATIC
     groundregions.cpp
     treepalette.cpp
     treescatter.cpp
+    biomemapwriter.cpp
 )
-target_link_libraries(pzgen PUBLIC pzformat)
+target_link_libraries(pzgen PUBLIC pzformat pzpng)
 target_include_directories(pzgen PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 target_compile_options(pzgen PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wold-style-cast)
 
 foreach(tool geojson_oracle rng_oracle footprint_oracle buildingplan_oracle buildingplan_selftest
               palettes_oracle maskrule_selftest gisraster_oracle groundregions_oracle
-              treescatter_oracle)
+              treescatter_oracle biomemap_oracle)
     add_executable(pz_${tool} ${tool}.cpp)
     target_link_libraries(pz_${tool} PRIVATE pzgen)
     target_compile_options(pz_${tool} PRIVATE -Wall -Wextra -Wpedantic)
