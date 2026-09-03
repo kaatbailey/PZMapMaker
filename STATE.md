@@ -4386,3 +4386,87 @@ the header's table shrinks.
   OpenJDK 21.0.12. **Falsifier, cheap and standing: re-run the 200-buffer sweep
   whenever either toolchain moves.** Level 4 is likewise measured, not
   documented — the zlib header only narrows it to FLEVEL 1, meaning levels 2-5.
+
+---
+
+## §45. Step 7 part 1 complete — `TreeScatter` + `TreePalette`
+
+Ported 2026-09-02. 359 of step 7's 1,360 lines.
+
+Oracle: `pz_treescatter_oracle` vs `pzformat.TreeScatterOracle`.
+**4,245 lines, 183,597 bytes, md5 `01ff465fd385791e2d8a41da47df20d2`.**
+Two compilers: g++ 13.3.0 and g++ 16.2.1. Five optimisation levels. Zero
+ASan/UBSan reports. 22 mutations: 18 caught, 3 provably null, 1 crashed.
+
+Key findings in `FINDINGS_F7_2026-09-02.md`:
+
+- **The dx/dy ordering mutation was null** — unlike the identical-looking
+  mutation in `GroundRegions`, which was caught. BFS distances are uniquely
+  determined regardless of queue order. §40's verdict-transfer rule demonstrated
+  in the direction that saves a false alarm.
+- **The density `>=` → `>` mutation is provably null** — `nextDouble` returns
+  `k·2⁻⁵³` and none of the four densities is such a multiple.
+- **`nextInt`'s rejection loop is unreachable** — production bound is 8, a power
+  of two. The class comment states the expectation rather than implying the loop
+  is covered. Covered properly by `pz_rng_oracle` (step 2).
+- **`Integer.parseInt` known divergence** — non-ASCII digits parse differently.
+  Every ASCII case matches exactly. Falsifier: the Java oracle throws if any
+  corpus value contains a non-ASCII digit.
+- **A crashed mutation exposed a harness bug** — the digest is written only at
+  the end of `main`, so a crashed run leaves the previous mutation's file
+  behind. Third stale-artefact failure of the day. Runner now deletes output
+  first and checks exit code.
+
+---
+
+## §46. Step 7 part 2 complete — `BiomeMapWriter` + `pzpng`
+
+Ported 2026-09-02. `BiomeMapWriter` 132 lines; `pzpng` 160 lines.
+
+Oracle: `pz_biomemap_oracle` vs `pzformat.BiomeMapOracle`.
+**647 lines, 29,822 bytes, md5 `64c0b0f0ff7ea8b9fcb8ec9043e35337`.**
+Two compilers: g++ 13.3.0 and g++ 16.2.1 (zlib 1.3 and 1.3.2 respectively).
+Zero sanitizer reports. 12 mutations: 11 caught, 1 crashed.
+
+### PNG byte-identity — CONFIRMED ON REAL PIPELINE DATA
+
+The `BMP` section encodes the buffers `BiomeMapWriter` actually produces and
+compares PNG bytes — the check the 200-buffer synthetic sweep in FINDINGS F5
+could not make. Both sections are in one oracle; the standing falsifier runs
+every time.
+
+**zlib 1.3.2 (Arch/Garuda) agrees with zlib 1.3 (Ubuntu).** Two zlib versions,
+same result, which is weak evidence the match is not version-sensitive at this
+step.
+
+Every one of the four ways QImage differs from ImageIO is caught as a named
+mutation: pHYs chunk, filter choice, zlib level, IDAT chunking. All four
+diverge at 364 lines (200 PNG + 110 BMP + 54 BMW). **Level 3 and level 6 both
+diverge** — level 4 is not a lucky neighbour, it is the only one that works.
+
+### Layering
+
+`pzpng` is its own CMake target. `pzgen` links it PUBLIC (so `GisCells` and
+the app layer get it transitively) but `pzgen` itself remains dependency-free
+as a library. `find_package(ZLIB REQUIRED)` added to `CMakeLists.txt`. `Qt6
+NOT found` still prints; every oracle target still builds. Confirmed on both
+compilers.
+
+### OPEN going into step 7 part 3
+
+- **`GisCells` (864 lines)** — the pipeline integrator, last remaining piece
+- **Ohio oracle** — byte-identical mod output against `BASELINE_ohio_2026-09-02.sha`
+- **Tokyo oracle** — clean run on a differently-shaped raster
+- **GCC 16 mod-output oracle** — biomemap and treescatter ran on GCC 16; the
+  mod-output oracle has not yet
+
+---
+
+## §13 Corrections — four new rows (2026-09-02)
+
+| wrong belief | correction | how found |
+|---|---|---|
+| **`TreeScatter` may be dead weight; A2 step 1 can delete 330 lines** (§20, §25, open since 2026-08-22) | **REFUTED.** Engine adds no trees. With write at `GisCells.java:237-239` commented, world 51381,51380 has zero trees. Both units must be ported. | Positional test in game, 2026-09-02. §42. |
+| **`GisCells` places 7,797 trees** (§25, 2026-08-22) | **7,744** as of 2026-09-02 on identical inputs. Code changed between sessions, not nondeterminism — confirmed deterministic (§44). The 2026-08-22 figure was correct for that code and is superseded. | Noticed while re-running the generator for §42. |
+| **Step 7 is 1,206 lines** (CHUNKS F5, port order table) | **1,360 lines.** 1,206 was written before the A2-gate resolved. `TreePalette` (154 lines) was expected to be deleted; §42 made it live. 210 + 154 + 132 + 864 = 1,360. | A2-gate resolution, §42. |
+| **§37 PNG OPEN: "Qt QImage may not reproduce Java ImageIO byte-for-byte"** | **RESOLVED.** It does not (four differences measured). But `pzpng` reproduces ImageIO exactly: filter None every row, zlib level 4, 32,768-byte IDATs, no ancillary chunks. 200/200 synthetic buffers + real pipeline buffers all match. Oracle is `pz_biomemap_oracle` PNG section. zlib 1.3 and 1.3.2 both agree. | pzpng + biomemap oracle, §46. |
