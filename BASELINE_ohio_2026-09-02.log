@@ -1,0 +1,77 @@
+features: 7 buildings, 1 roads
+extent taken from the requested area
+   (returned data spans 6.7x9.6 times the requested area — clipping)
+extent: 495 x 424 tiles (3.20 cells)
+water features: 1
+
+placed: 7 buildings (1409 tiles), 1 roads (2808 tiles), 1 water (1486 tiles)
+derived walls: 240 north, 160 west
+
+by occupancy class:
+   Agriculture              1
+   Residential              6
+
+area check against the dataset's own SQMETERS: worst 13.5% over 7 buildings
+   [279,81 12x6] = 72 tiles vs SQMETERS 83.3
+
+sprite atlas: 46540 names from 24/24 packs
+tile palette:
+   floor=floors_interior_tilesandwood_01_40  ("Hardwood Floor", Wood)
+   road=blends_street_01_0  [attachedFloor diamondFloor exterior solidfloor]
+   grass=blends_natural_01_16  [diamondFloor exterior grassFloor natureFloor solidfloor]
+   water=blends_natural_02_0  [attachedFloor solidfloor solidtrans taintedWater water]
+   wallN=walls_exterior_house_01_1  [IsPaintable WallN wall]
+   wallW=walls_exterior_house_01_0  [IsPaintable WallW wall]
+   doorN=walls_exterior_house_01_11  [DoorWallN IsPaintable wall]
+   doorW=walls_exterior_house_01_10  [DoorWallW IsPaintable wall]
+   intWallN=walls_interior_house_01_1  [IsPaintable WallN wall]
+   intWallW=walls_interior_house_01_0  [IsPaintable WallW wall]
+   intDoorN=walls_interior_house_01_107  [DoorWallN IsPaintable wall]
+   intDoorW=walls_interior_house_01_10  [DoorWallW IsPaintable wall]
+   extNW=walls_exterior_house_01_18  [IsPaintable WallNW wall]
+   extSE=walls_exterior_house_01_19  [IsPaintable WallSE wall]
+   intNW=walls_interior_house_01_102  [IsPaintable WallNW wall]
+   intSE=walls_interior_house_01_103  [IsPaintable WallSE wall]
+   dropped (properties but no sprite): 0
+exterior wall skins: 5 available
+   [0] walls_exterior_house_01
+   [1] walls_exterior_house_02
+   [2] walls_exterior_wooden_01
+   [3] walls_exterior_wooden_02
+   [4] walls_exterior_house_low_01
+ground palette: 3 base groups, 54 tufts
+      grass, dense   58.6% of ground,  60.6% overlaid
+      grass, medium  17.4% of ground,  37.0% overlaid
+      grass, light    8.1% of ground,  15.2% overlaid
+tree palette: size 2: 8 tiles, stumps available  (no sprites by design; the engine substitutes species art)
+trees: 7744 placed, 117 stumps
+   roadside   size 1     121
+   regrowth   size 2     459
+   woodland   size 2    1574
+   dense      size 2    5590
+   (species and mature size are chosen by the engine at runtime; the renderer cannot preview these)
+
+BUILDING DIRECTORY
+  #    OCC_CLS            area  rect        facing   rooms   world pos         notes
+  0    Residential       160m²  16x10       WEST        5    x:51443  y:51327   
+  1    Residential       184m²  23x8        WEST        5    x:51400  y:51425   
+  2    Residential       225m²  15x15       SOUTH       5    x:51236  y:51525   
+  3    Residential        72m²  12x6        SOUTH       5    x:51479  y:51281   
+  4    Residential       308m²  22x14       SOUTH       7    x:51613  y:51538   large for Residential?
+  5    Residential       340m²  20x17       SOUTH       7    x:51292  y:51531   large for Residential?
+  6    Agriculture       120m²  12x10       WEST        1    x:51304  y:51291   small for Agriculture?
+
+generating 2x2 cells
+cells written: 4   squares: 262144   rooms: 36   edge-filled: 52264
+ground tufts: 131558  (50.2% of ground squares; vanilla measures 43.3%)
+worldgen override: grass_plain over world x 51200..51711, y 51200..51711
+biome maps: 4 written to maps/
+   town 17339, edge 28542, forest 77328, deep 86671, beyond-raster 52264
+   R=biome G=zone, both indexed into biome_map_config
+
+mod written to /home/kaatlev/Zomboid/mods/PZGisImport
+cells occupy 200_200 to 201_201, well clear of vanilla Knox County
+spawn point set on a road square at cell 200_200, world tile 51312,51389 (chunk 6414,6423)
+
+When starting a new game, pick "PZGisImport" from the location list.
+If it is absent the map is not registered and the cells will never be read.
